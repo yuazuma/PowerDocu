@@ -221,14 +221,12 @@ namespace PowerDocu.SolutionDocumenter
             ApplyStyleToParagraph("Heading1", para);
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
-            List<string> dependencies = content
-                                        .solution
-                                        .Dependencies
-                                        .GroupBy(p => p.Required.reqdepSolution)
-                                        .Select(g => g.First())
-                                        .OrderBy(t => t.Required.reqdepSolution)
-                                        .Select(t => t.Required.reqdepSolution)
-                                        .ToList();
+            List<string> dependencies = content.solution.Dependencies
+                .GroupBy(p => p.Required.reqdepSolution)
+                .Select(g => g.First())
+                .OrderBy(t => t.Required.reqdepSolution)
+                .Select(t => t.Required.reqdepSolution)
+                .ToList();
             if (dependencies.Count > 0)
             {
                 run.AppendChild(new Text("This solution has the following dependencies: "));
@@ -285,6 +283,7 @@ namespace PowerDocu.SolutionDocumenter
                 Table table = CreateTable();
                 table.Append(CreateRow(new Text("Primary Column"), new Text(tableEntity.getPrimaryColumn())));
                 table.Append(CreateRow(new Text("Description"), new Text(tableEntity.getDescription())));
+                table.Append(CreateRow(new Text("Record Ownership"), new Text(tableEntity.GetOwnershipType())));
                 table.Append(CreateRow(new Text("Auditing"), new Text(tableEntity.IsAuditEnabled() ? "Enabled" : "Disabled")));
                 body.Append(table);
                 para = body.AppendChild(new Paragraph());
@@ -362,7 +361,7 @@ namespace PowerDocu.SolutionDocumenter
                     if (!String.IsNullOrEmpty(optionSet.Description))
                         table.Append(CreateRow(new Text("Description"), new Text(optionSet.Description)));
                     body.Append(table);
-                    
+
                     if (optionSet.Options.Count > 0)
                     {
                         para = body.AppendChild(new Paragraph());

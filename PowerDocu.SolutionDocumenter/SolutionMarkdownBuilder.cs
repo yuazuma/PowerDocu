@@ -325,6 +325,7 @@ namespace PowerDocu.SolutionDocumenter
                 {
                     new MdTableRow("Primary Column", tableEntity.getPrimaryColumn()),
                     new MdTableRow("Description", tableEntity.getDescription()),
+                    new MdTableRow("Ownership Type", tableEntity.GetOwnershipType()),
                     new MdTableRow("Auditing", tableEntity.IsAuditEnabled()?"Enabled":"Disabled")
                 };
                 solutionDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
