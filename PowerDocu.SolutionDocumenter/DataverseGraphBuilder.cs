@@ -111,8 +111,6 @@ namespace PowerDocu.SolutionDocumenter
                                 );
                                 createNodeRelationship(lookupTableGraph, currentTableGraph, lookupTableEntity, tableEntity, lookupColumn, "*|1");
                             }
-                        } else {
-                            string s = "";
                         }
                     }
                     else

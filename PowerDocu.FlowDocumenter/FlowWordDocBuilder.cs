@@ -339,18 +339,20 @@ namespace PowerDocu.FlowDocumenter
                                         else if (actionInput.expressionOperands[0]?.GetType() == typeof(List<object>))
                                         {
                                             Table operandsTable = CreateTable();
-                                            foreach(object obj in (List<object>)actionInput.expressionOperands[0]) {
-                                                if(obj.GetType().Equals(typeof(Expression))) {
-                                                    AddExpressionTable((Expression)obj,operandsTable);
-                                                } else  if(obj.GetType().Equals(typeof(List<object>))) {
+                                            foreach (object obj in (List<object>)actionInput.expressionOperands[0])
+                                            {
+                                                if (obj.GetType().Equals(typeof(Expression)))
+                                                {
+                                                    AddExpressionTable((Expression)obj, operandsTable);
+                                                }
+                                                else if (obj.GetType().Equals(typeof(List<object>)))
+                                                {
                                                     Table innerOperandsTable = CreateTable();
-                                                    foreach(object o in (List<object>)obj) {
-                                                        AddExpressionTable((Expression)o,innerOperandsTable);
+                                                    foreach (object o in (List<object>)obj)
+                                                    {
+                                                        AddExpressionTable((Expression)o, innerOperandsTable);
                                                     }
                                                     operandsCell.Append(innerOperandsTable, new Paragraph());
-                                                }
-                                                else {
-                                                    string s = "";
                                                 }
                                             }
                                             operandsCell.Append(operandsTable, new Paragraph());

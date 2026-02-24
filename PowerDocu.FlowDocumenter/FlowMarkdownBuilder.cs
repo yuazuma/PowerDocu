@@ -224,14 +224,13 @@ namespace PowerDocu.FlowDocumenter
                 }
                 if (!String.IsNullOrEmpty(action.Connection))
                 {
-                    tableRows.Add(new MdTableRow("Connection",
-                                                getConnectorNameAndIcon(action.Connection, "https://docs.microsoft.com/connectors/" + action.Connection, true)));
+                    tableRows.Add(new MdTableRow("Connection", getConnectorNameAndIcon(action.Connection, "https://docs.microsoft.com/connectors/" + action.Connection, true)));
                 }
 
                 //TODO provide more details, such as information about subaction, subsequent actions, switch actions, ...
                 if (action.actionExpression != null || !String.IsNullOrEmpty(action.Expression))
                 {
-                    tableRows.Add(new MdTableRow("Expression", new MdRawMarkdownSpan((action.actionExpression != null) ? AddExpressionTable(action.actionExpression).ToString() : action.Expression)));
+                    tableRows.Add(new MdTableRow("Expression", new MdRawMarkdownSpan((action.actionExpression != null) ? AddExpressionTable(action.actionExpression).ToString() : getCodeBlock(action.Expression))));
                 }
                 MdTable table = new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), tableRows);
                 actionsDoc.Root.Add(table);
@@ -255,7 +254,7 @@ namespace PowerDocu.FlowDocumenter
                                     }
                                     else
                                     {
-                                        operandsTable.Append("<tr><td>").Append(actionInputOperand.ToString()).Append("</td></tr>");
+                                        operandsTable.Append("<tr><td>").Append(getCodeBlock(actionInputOperand.ToString())).Append("</td></tr>");
                                     }
                                 }
                                 operandsCell.Append(operandsTable.Append("</table>"));
@@ -272,24 +271,28 @@ namespace PowerDocu.FlowDocumenter
                                     {
                                         operandsCell.Append(AddExpressionTable((Expression)actionInput.expressionOperands[0]));
                                     }
-                                    else if (actionInput.expressionOperands[0]?.GetType() == typeof(List<object>)) {
+                                    else if (actionInput.expressionOperands[0]?.GetType() == typeof(List<object>))
+                                    {
                                         operandsCell.Append("<table>");
-                                            foreach(object obj in (List<object>)actionInput.expressionOperands[0]) {
-                                                if(obj.GetType().Equals(typeof(Expression))) {
-                                                    operandsCell.Append(AddExpressionTable((Expression)obj,false));
-                                                } else  if(obj.GetType().Equals(typeof(List<object>))) {
-                                                    foreach(object o in (List<object>)obj) {
-                                                        operandsCell.Append(AddExpressionTable((Expression)o,false));
-                                                    }
-                                                }
-                                                else {
-                                                    string s = "";
+                                        foreach (object obj in (List<object>)actionInput.expressionOperands[0])
+                                        {
+                                            if (obj.GetType().Equals(typeof(Expression)))
+                                            {
+                                                operandsCell.Append(AddExpressionTable((Expression)obj, false));
+                                            }
+                                            else if (obj.GetType().Equals(typeof(List<object>)))
+                                            {
+                                                foreach (object o in (List<object>)obj)
+                                                {
+                                                    operandsCell.Append(AddExpressionTable((Expression)o, false));
                                                 }
                                             }
-                                            operandsCell.Append("</table>");
-                                    }else
+                                        }
+                                        operandsCell.Append("</table>");
+                                    }
+                                    else
                                     {
-                                        operandsCell.Append(actionInput.expressionOperands[0]?.ToString());
+                                        operandsCell.Append(getCodeBlock(actionInput.expressionOperands[0]?.ToString()));
                                     }
                                 }
                             }
@@ -298,6 +301,7 @@ namespace PowerDocu.FlowDocumenter
                     }
                     if (!String.IsNullOrEmpty(action.Inputs))
                     {
+                        //TODO issue here, as variables may be references. getCodeBlock is not the right way to handle this
                         tableRows.Add(new MdTableRow("Value", action.Inputs));
                     }
                     table = new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), tableRows);
