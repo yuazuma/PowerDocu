@@ -217,7 +217,14 @@ namespace PowerDocu.AppDocumenter
                     List<MdTableRow> tableRows = new List<MdTableRow>();
                     foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
                     {
-                        tableRows.Add(new MdTableRow(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", reference.RuleProperty));
+                        if (reference.Control.Type == "appinfo")
+                        {
+                            tableRows.Add(new MdTableRow(new MdLinkSpan("App", appDetailsFileName), reference.RuleProperty));
+                        }
+                        else
+                        {
+                            tableRows.Add(new MdTableRow(new MdLinkSpan(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", ("screen " + reference.Control.Screen()?.Name + " " + content.filename + ".md").Replace(" ", "-")), reference.RuleProperty));
+                        }
                     }
                     variablesDocument.Root.Add(new MdTable(new MdTableRow("Control", "Property"), tableRows));
                 }
@@ -233,7 +240,14 @@ namespace PowerDocu.AppDocumenter
                     List<MdTableRow> tableRows = new List<MdTableRow>();
                     foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
                     {
-                        tableRows.Add(new MdTableRow(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", reference.RuleProperty));
+                         if (reference.Control.Type == "appinfo")
+                        {
+                            tableRows.Add(new MdTableRow(new MdLinkSpan("App", appDetailsFileName), reference.RuleProperty));
+                        }
+                        else
+                        {
+                            tableRows.Add(new MdTableRow(new MdLinkSpan(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", ("screen " + reference.Control.Screen()?.Name + " " + content.filename + ".md").Replace(" ", "-")), reference.RuleProperty));
+                        }
                     }
                     variablesDocument.Root.Add(new MdTable(new MdTableRow("Control", "Property"), tableRows));
                 }
