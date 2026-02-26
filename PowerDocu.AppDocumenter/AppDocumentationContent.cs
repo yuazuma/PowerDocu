@@ -104,8 +104,9 @@ namespace PowerDocu.AppDocumenter
 
         public AppResources(AppEntity app)
         {
-            infoText = $"A total of {app.Resources.Count} Resources are located in the app:";
-            resources = app.Resources;
+            //only count resources that are not sample resources
+            infoText = $"A total of {app.Resources.Where(resource => !resource.isSampleResource()).Count()} Resources are located in the app:";
+            resources = app.Resources.ToList();
         }
     }
 
@@ -115,6 +116,7 @@ namespace PowerDocu.AppDocumenter
         public string appLogo;
         public string appBackgroundColour;
         public string headerAppProperties = "App Properties";
+        public string headerAppInfo = "App Info";
         public string headerAppStatistics = "App Statistics";
         public string headerAppPreviewFlags = "App Preview Flags";
         public string headerDocumentationGenerated = "Documentation generated at";

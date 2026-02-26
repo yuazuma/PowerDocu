@@ -161,6 +161,15 @@ namespace PowerDocu.AppDocumenter
             {
                 appDetailsDocument.Root.Add(new MdTable(new MdTableRow("App Property", "Value"), tableRows));
             }
+            foreach (Expression property in content.appProperties.appProperties)
+            {
+                if (!content.appProperties.propertiesToSkip.Contains(property.expressionOperator))
+                {
+                    tableRows.Add(new MdTableRow(property.expressionOperator, property.expressionOperands[0].ToString()));
+                }
+            }
+            appDetailsDocument.Root.Add(new MdHeading(content.appProperties.headerAppInfo, 2));
+            addAppControlsTable(content.appControls.controls.First<ControlEntity>(o => o.Type == "appinfo"), appDetailsDocument);
             appDetailsDocument.Root.Add(new MdHeading(content.appProperties.headerAppPreviewFlags, 2));
             tableRows = new List<MdTableRow>();
             if (content.appProperties.appPreviewsFlagProperty != null)
@@ -240,7 +249,7 @@ namespace PowerDocu.AppDocumenter
                     List<MdTableRow> tableRows = new List<MdTableRow>();
                     foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
                     {
-                         if (reference.Control.Type == "appinfo")
+                        if (reference.Control.Type == "appinfo")
                         {
                             tableRows.Add(new MdTableRow(new MdLinkSpan("App", appDetailsFileName), reference.RuleProperty));
                         }
@@ -354,7 +363,7 @@ namespace PowerDocu.AppDocumenter
                 screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
             //Colour properties
             tableRows = new List<MdTableRow>();
-            screenDoc.Root.Add(new MdHeading("Color Properties", 3));
+            bool colourPropertiesHeaderAdded = false;
             foreach (string property in content.ColourProperties)
             {
                 Rule rule = control.Rules.Find(o => o.Property == property);
@@ -365,6 +374,11 @@ namespace PowerDocu.AppDocumenter
                         defaultValue = DefaultChangeHelper.DefaultValueIfUnknown;
                     if (!documentChangedDefaultsOnly || defaultValue != rule.InvariantScript)
                     {
+                        if (!colourPropertiesHeaderAdded)
+                        {
+                            screenDoc.Root.Add(new MdHeading("Color Properties", 3));
+                            colourPropertiesHeaderAdded = true;
+                        }
                         if (rule.InvariantScript.StartsWith("RGBA("))
                         {
                             tableRows.Add(CreateColorTable(rule, defaultValue));
@@ -379,18 +393,22 @@ namespace PowerDocu.AppDocumenter
             if (tableRows.Count > 0)
                 screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
             tableRows = new List<MdTableRow>();
-            screenDoc.Root.Add(new MdHeading("Child & Parent Controls", 3));
 
-            foreach (ControlEntity childControl in control.Children)
+            if (control.Children.Count > 0 || control.Parent != null)
             {
-                tableRows.Add(new MdTableRow("Child Control", childControl.Name));
+                screenDoc.Root.Add(new MdHeading("Child & Parent Controls", 3));
+
+                foreach (ControlEntity childControl in control.Children)
+                {
+                    tableRows.Add(new MdTableRow("Child Control", childControl.Name));
+                }
+                if (control.Parent != null)
+                {
+                    tableRows.Add(new MdTableRow("Parent Control", control.Parent.Name));
+                }
+                if (tableRows.Count > 0)
+                    screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
             }
-            if (control.Parent != null)
-            {
-                tableRows.Add(new MdTableRow("Parent Control", control.Parent.Name));
-            }
-            if (tableRows.Count > 0)
-                screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
         }
 
         private string CreateChangedDefaultColourRow(string firstColumnElement, string secondColumnElement)

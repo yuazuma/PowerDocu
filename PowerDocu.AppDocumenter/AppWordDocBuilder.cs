@@ -109,6 +109,11 @@ namespace PowerDocu.AppDocumenter
             }
             body.Append(table);
             body.AppendChild(new Paragraph(new Run(new Break())));
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.appProperties.headerAppInfo));
+            ApplyStyleToParagraph("Heading1", para);
+            body.AppendChild(new Paragraph(new Run()));
             addAppControlsTable(content.appControls.controls.First<ControlEntity>(o => o.Type == "appinfo"));
             if (DetailedDocumentation)
             {

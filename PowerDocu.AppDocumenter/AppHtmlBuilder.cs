@@ -153,6 +153,9 @@ namespace PowerDocu.AppDocumenter
             }
             body.AppendLine(TableEnd());
 
+            body.AppendLine(Heading(2, content.appProperties.headerAppInfo));
+            body.Append(buildControlTable(content.appControls.controls.First<ControlEntity>(o => o.Type == "appinfo")));
+
             body.AppendLine(Heading(2, content.appProperties.headerAppPreviewFlags));
             if (content.appProperties.appPreviewsFlagProperty != null)
             {
@@ -463,8 +466,8 @@ namespace PowerDocu.AppDocumenter
             sb.AppendLine(TableEnd());
 
             // Color Properties
-            sb.AppendLine(Heading(3, "Color Properties"));
-            sb.Append(TableStart("Property", "Value"));
+            bool colourPropertiesHeaderAdded = false;
+            StringBuilder colourSb = new StringBuilder();
             foreach (string property in content.ColourProperties)
             {
                 Rule rule = control.Rules.Find(o => o.Property == property);
@@ -474,31 +477,45 @@ namespace PowerDocu.AppDocumenter
                     if (String.IsNullOrEmpty(defaultValue)) defaultValue = DefaultChangeHelper.DefaultValueIfUnknown;
                     if (!documentChangedDefaultsOnly || defaultValue != rule.InvariantScript)
                     {
+                        if (!colourPropertiesHeaderAdded)
+                        {
+                            colourSb.AppendLine(Heading(3, "Color Properties"));
+                            colourSb.Append(TableStart("Property", "Value"));
+                            colourPropertiesHeaderAdded = true;
+                        }
                         if (rule.InvariantScript.StartsWith("RGBA("))
                         {
-                            sb.Append(buildColorRow(rule, defaultValue));
+                            colourSb.Append(buildColorRow(rule, defaultValue));
                         }
                         else
                         {
-                            sb.Append(TableRowRaw(Encode(rule.Property), CodeBlock(rule.InvariantScript)));
+                            colourSb.Append(TableRowRaw(Encode(rule.Property), CodeBlock(rule.InvariantScript)));
                         }
                     }
                 }
             }
-            sb.AppendLine(TableEnd());
+            if (colourPropertiesHeaderAdded)
+            {
+                colourSb.AppendLine(TableEnd());
+                sb.Append(colourSb);
+            }
+
 
             // Child & Parent Controls
-            sb.AppendLine(Heading(3, "Child & Parent Controls"));
-            sb.Append(TableStart("Property", "Value"));
-            foreach (ControlEntity childControl in control.Children)
+            if (control.Children.Count > 0 || control.Parent != null)
             {
-                sb.Append(TableRow("Child Control", childControl.Name));
+                sb.AppendLine(Heading(3, "Child & Parent Controls"));
+                sb.Append(TableStart("Property", "Value"));
+                foreach (ControlEntity childControl in control.Children)
+                {
+                    sb.Append(TableRow("Child Control", childControl.Name));
+                }
+                if (control.Parent != null)
+                {
+                    sb.Append(TableRow("Parent Control", control.Parent.Name));
+                }
+                sb.AppendLine(TableEnd());
             }
-            if (control.Parent != null)
-            {
-                sb.Append(TableRow("Parent Control", control.Parent.Name));
-            }
-            sb.AppendLine(TableEnd());
             return sb.ToString();
         }
 
