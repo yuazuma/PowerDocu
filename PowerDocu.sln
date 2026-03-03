@@ -13,6 +13,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PowerDocu.AppDocumenter", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PowerDocu.SolutionDocumenter", "PowerDocu.SolutionDocumenter\PowerDocu.SolutionDocumenter.csproj", "{E728F5E8-32AC-42F6-84DB-BE287175016C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerDocu.AgentDocumenter", "PowerDocu.AgentDocumenter\PowerDocu.AgentDocumenter.csproj", "{F26BFE35-B63D-4A44-8D60-1045C90E2949}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerDocu.AppModuleDocumenter", "PowerDocu.AppModuleDocumenter\PowerDocu.AppModuleDocumenter.csproj", "{6C508F7E-82CF-412A-B4C6-5F74797BA50B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "modules", "modules", "{CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PowerDocu.Common", "PowerDocu.Common", "{B979D467-1156-78F0-F2D7-290889AF791E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,9 +91,36 @@ Global
 		{E728F5E8-32AC-42F6-84DB-BE287175016C}.Release|x64.Build.0 = Release|Any CPU
 		{E728F5E8-32AC-42F6-84DB-BE287175016C}.Release|x86.ActiveCfg = Release|Any CPU
 		{E728F5E8-32AC-42F6-84DB-BE287175016C}.Release|x86.Build.0 = Release|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Debug|x64.Build.0 = Debug|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Debug|x86.Build.0 = Debug|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Release|x64.ActiveCfg = Release|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Release|x64.Build.0 = Release|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Release|x86.ActiveCfg = Release|Any CPU
+		{F26BFE35-B63D-4A44-8D60-1045C90E2949}.Release|x86.Build.0 = Release|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Debug|x64.Build.0 = Debug|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Debug|x86.Build.0 = Debug|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Release|x64.ActiveCfg = Release|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Release|x64.Build.0 = Release|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Release|x86.ActiveCfg = Release|Any CPU
+		{6C508F7E-82CF-412A-B4C6-5F74797BA50B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B979D467-1156-78F0-F2D7-290889AF791E} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D1B3356E-BA93-4E04-9046-2F7BA6B760A3}
