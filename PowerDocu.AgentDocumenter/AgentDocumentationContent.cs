@@ -24,6 +24,8 @@ namespace PowerDocu.AgentDocumenter
         public string Triggers = "Triggers";
         public string Agents = "Agents";
         public string Topics = "Topics";
+        public string Entities = "Entities";
+        public string Variables = "Variables";
         public string SuggestedPrompts = "Suggested prompts";
         public string SuggestedPromptsText = "Suggest ways of starting conversations for Teams and Microsoft 365 channels.";
         public AgentDocumentationContent(AgentEntity agent, string path)

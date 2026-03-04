@@ -11,7 +11,7 @@ namespace PowerDocu.AgentDocumenter
     class AgentHtmlBuilder : HtmlBuilder
     {
         private readonly AgentDocumentationContent content;
-        private readonly string mainFileName, knowledgeFileName, toolsFileName, agentsFileName, topicsFileName, channelsFileName, settingsFileName;
+        private readonly string mainFileName, knowledgeFileName, toolsFileName, agentsFileName, topicsFileName, channelsFileName, settingsFileName, entitiesFileName, variablesFileName;
         private readonly Dictionary<string, string> topicFileNames = new Dictionary<string, string>();
 
         public AgentHtmlBuilder(AgentDocumentationContent contentdocumentation)
@@ -27,6 +27,8 @@ namespace PowerDocu.AgentDocumenter
             topicsFileName = ("topics-" + content.filename + ".html").Replace(" ", "-");
             channelsFileName = ("channels-" + content.filename + ".html").Replace(" ", "-");
             settingsFileName = ("settings-" + content.filename + ".html").Replace(" ", "-");
+            entitiesFileName = ("entities-" + content.filename + ".html").Replace(" ", "-");
+            variablesFileName = ("variables-" + content.filename + ".html").Replace(" ", "-");
 
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
@@ -38,6 +40,8 @@ namespace PowerDocu.AgentDocumenter
             addAgentTools();
             addAgentAgentsInfo();
             addAgentTopics();
+            addAgentEntities();
+            addAgentVariables();
             addAgentChannels();
             addAgentSettings();
             NotificationHelper.SendNotification("Created HTML documentation for " + content.filename);
@@ -51,6 +55,8 @@ namespace PowerDocu.AgentDocumenter
                 ("Overview", prefix + mainFileName),
                 ("Knowledge", prefix + knowledgeFileName),
                 ("Tools", prefix + toolsFileName),
+                ("Entities", prefix + entitiesFileName),
+                ("Variables", prefix + variablesFileName),
                 ("Agents", prefix + agentsFileName),
                 ("Topics", prefix + topicsFileName),
                 ("Channels", prefix + channelsFileName),
@@ -99,17 +105,66 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(ParagraphWithLinebreaks(content.agent.GetInstructions()));
 
             body.AppendLine(Heading(3, content.Knowledge));
-            foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
+            var knowledgeSources = content.agent.GetKnowledge();
+            var fileKnowledge = content.agent.GetFileKnowledge();
+            if (knowledgeSources.Count > 0 || fileKnowledge.Count > 0)
             {
-                body.AppendLine(Paragraph(knowledgeSource.Name));
+                body.Append(TableStart("Name", "Source Type", "Details"));
+                foreach (BotComponent ks in knowledgeSources)
+                {
+                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
+                    string site = ks.GetKnowledgeSourceSite();
+                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
+                    body.Append(TableRow(ks.Name, sourceKind ?? "", details));
+                }
+                foreach (BotComponent fk in fileKnowledge)
+                {
+                    string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
+                    body.Append(TableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? ""));
+                }
+                body.AppendLine(TableEnd());
+            }
+            else
+            {
+                body.AppendLine(Paragraph("No knowledge sources configured."));
             }
 
-            body.AppendLine(Heading(3, content.WebSearch));
-            body.AppendLine(Paragraph("TODO"));
+            body.AppendLine(Heading(3, content.Tools));
+            var overviewTools = content.agent.GetTools();
+            if (overviewTools.Count > 0)
+            {
+                body.AppendLine(BulletListStart());
+                foreach (BotComponent tool in overviewTools.OrderBy(t => t.Name))
+                {
+                    body.AppendLine(BulletItem(tool.Name));
+                }
+                body.AppendLine(BulletListEnd());
+            }
+            else
+            {
+                body.AppendLine(Paragraph("No tools configured."));
+            }
+
             body.AppendLine(Heading(3, content.Triggers));
-            body.AppendLine(Paragraph("TODO"));
+            var overviewTriggers = content.agent.GetTriggers();
+            if (overviewTriggers.Count > 0)
+            {
+                body.AppendLine(BulletListStart());
+                foreach (BotComponent trigger in overviewTriggers.OrderBy(t => t.Name))
+                {
+                    var (triggerKind, flowId, connectionType) = trigger.GetTriggerDetails();
+                    string triggerInfo = !string.IsNullOrEmpty(connectionType) ? $" ({connectionType})" : "";
+                    body.AppendLine(BulletItem(trigger.Name + triggerInfo));
+                }
+                body.AppendLine(BulletListEnd());
+            }
+            else
+            {
+                body.AppendLine(Paragraph("No triggers configured."));
+            }
+
             body.AppendLine(Heading(3, content.Agents));
-            body.AppendLine(Paragraph("TODO"));
+            body.AppendLine(Paragraph("Sub-agents are not available in the solution export."));
 
             body.AppendLine(Heading(3, content.Topics));
             body.AppendLine(BulletListStart());
@@ -141,10 +196,31 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(buildMetadataTable());
             body.AppendLine(Heading(2, content.Knowledge));
             body.AppendLine(Paragraph("Knowledge sources for this agent."));
-            foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
+
+            var knowledgeSources = content.agent.GetKnowledge();
+            var fileKnowledge = content.agent.GetFileKnowledge();
+            if (knowledgeSources.Count > 0 || fileKnowledge.Count > 0)
             {
-                body.AppendLine(Heading(3, knowledgeSource.Name));
+                body.Append(TableStart("Name", "Source Type", "Details", "Description"));
+                foreach (BotComponent ks in knowledgeSources)
+                {
+                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
+                    string site = ks.GetKnowledgeSourceSite();
+                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
+                    body.Append(TableRow(ks.Name, sourceKind ?? "", details, ks.Description ?? ""));
+                }
+                foreach (BotComponent fk in fileKnowledge)
+                {
+                    string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
+                    body.Append(TableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? "", fk.Description ?? ""));
+                }
+                body.AppendLine(TableEnd());
             }
+            else
+            {
+                body.AppendLine(Paragraph("No knowledge sources configured."));
+            }
+
             SaveHtmlFile(Path.Combine(content.folderPath, knowledgeFileName),
                 WrapInHtmlPage($"Knowledge - {content.filename}", body.ToString(), getNavigationHtml()));
         }
@@ -155,9 +231,160 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(Heading(1, $"Agent - {content.filename}"));
             body.AppendLine(buildMetadataTable());
             body.AppendLine(Heading(2, content.Tools));
-            body.AppendLine(Paragraph("Tools available for this agent."));
+
+            var tools = content.agent.GetTools();
+            if (tools.Count == 0)
+            {
+                body.AppendLine(Paragraph("No tools configured."));
+            }
+            else
+            {
+                // Summary table
+                body.Append(TableStart("Name", "Action Type", "Connection", "Operation"));
+                foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+                {
+                    var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
+                    string actionTypeDisplay = actionKind switch
+                    {
+                        "InvokeConnectorTaskAction" => "Connector",
+                        "InvokeFlowTaskAction" => "Power Automate Flow",
+                        _ => actionKind
+                    };
+                    body.Append(TableRow(tool.Name, actionTypeDisplay, connectionRef ?? "", operationId ?? ""));
+                }
+                body.AppendLine(TableEnd());
+
+                // Detail per tool
+                foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+                {
+                    body.AppendLine(Heading(3, tool.Name));
+                    var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
+                    body.Append(TableStart("Property", "Value"));
+                    if (!string.IsNullOrEmpty(modelDisplayName))
+                        body.Append(TableRow("Display Name", modelDisplayName));
+                    if (!string.IsNullOrEmpty(tool.Description))
+                        body.Append(TableRow("Description", tool.Description));
+                    string actionTypeDisplay = actionKind switch
+                    {
+                        "InvokeConnectorTaskAction" => "Connector",
+                        "InvokeFlowTaskAction" => "Power Automate Flow",
+                        _ => actionKind
+                    };
+                    body.Append(TableRow("Action Type", actionTypeDisplay));
+                    if (!string.IsNullOrEmpty(connectionRef))
+                        body.Append(TableRow("Connection Reference", connectionRef));
+                    if (!string.IsNullOrEmpty(operationId))
+                        body.Append(TableRow("Operation", operationId));
+                    if (!string.IsNullOrEmpty(flowId))
+                        body.Append(TableRow("Flow ID", flowId));
+                    body.AppendLine(TableEnd());
+
+                    if (inputs.Count > 0)
+                    {
+                        body.AppendLine(Heading(4, "Inputs"));
+                        body.Append(TableStart("Input"));
+                        foreach (string input in inputs)
+                        {
+                            body.Append(TableRow(input));
+                        }
+                        body.AppendLine(TableEnd());
+                    }
+
+                    if (outputs.Count > 0)
+                    {
+                        body.AppendLine(Heading(4, "Outputs"));
+                        body.Append(TableStart("Output"));
+                        foreach (string output in outputs)
+                        {
+                            body.Append(TableRow(output));
+                        }
+                        body.AppendLine(TableEnd());
+                    }
+                }
+            }
+
             SaveHtmlFile(Path.Combine(content.folderPath, toolsFileName),
                 WrapInHtmlPage($"Tools - {content.filename}", body.ToString(), getNavigationHtml()));
+        }
+
+        private void addAgentEntities()
+        {
+            StringBuilder body = new StringBuilder();
+            body.AppendLine(Heading(1, $"Agent - {content.filename}"));
+            body.AppendLine(buildMetadataTable());
+            body.AppendLine(Heading(2, content.Entities));
+
+            var entities = content.agent.GetEntities();
+            if (entities.Count == 0)
+            {
+                body.AppendLine(Paragraph("No custom entities defined."));
+            }
+            else
+            {
+                foreach (BotComponent entity in entities.OrderBy(e => e.Name))
+                {
+                    string entityKind = entity.GetTopicKind();
+                    body.AppendLine(Heading(3, entity.Name));
+
+                    body.Append(TableStart("Property", "Value"));
+                    body.Append(TableRow("Name", entity.Name));
+                    body.Append(TableRow("Kind", entityKind));
+                    if (!string.IsNullOrEmpty(entity.Description))
+                        body.Append(TableRow("Description", entity.Description));
+                    if (entityKind == "RegexEntity")
+                    {
+                        string pattern = entity.GetEntityPattern();
+                        if (!string.IsNullOrEmpty(pattern))
+                            body.Append(TableRow("Pattern", pattern));
+                    }
+                    body.AppendLine(TableEnd());
+
+                    if (entityKind == "ClosedListEntity")
+                    {
+                        var items = entity.GetEntityItems();
+                        if (items.Count > 0)
+                        {
+                            body.AppendLine(Heading(4, "Items"));
+                            body.Append(TableStart("Display Name", "ID"));
+                            foreach (var (id, displayName) in items)
+                            {
+                                body.Append(TableRow(displayName, id));
+                            }
+                            body.AppendLine(TableEnd());
+                        }
+                    }
+                }
+            }
+
+            SaveHtmlFile(Path.Combine(content.folderPath, entitiesFileName),
+                WrapInHtmlPage($"Entities - {content.filename}", body.ToString(), getNavigationHtml()));
+        }
+
+        private void addAgentVariables()
+        {
+            StringBuilder body = new StringBuilder();
+            body.AppendLine(Heading(1, $"Agent - {content.filename}"));
+            body.AppendLine(buildMetadataTable());
+            body.AppendLine(Heading(2, content.Variables));
+
+            var variables = content.agent.GetVariables();
+            if (variables.Count == 0)
+            {
+                body.AppendLine(Paragraph("No global variables defined."));
+            }
+            else
+            {
+                body.Append(TableStart("Name", "Scope", "Data Type", "AI Visibility", "External Init", "Description"));
+                foreach (BotComponent variable in variables.OrderBy(v => v.Name))
+                {
+                    var (scope, aiVisibility, dataType, isExternalInit) = variable.GetVariableDetails();
+                    body.Append(TableRow(variable.Name, scope, dataType, aiVisibility, isExternalInit ? "Yes" : "No", variable.Description ?? ""));
+                }
+                body.AppendLine(TableEnd());
+            }
+
+            SaveHtmlFile(Path.Combine(content.folderPath, variablesFileName),
+                WrapInHtmlPage($"Variables - {content.filename}", body.ToString(), getNavigationHtml()));
         }
 
         private void addAgentAgentsInfo()
@@ -166,7 +393,7 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(Heading(1, $"Agent - {content.filename}"));
             body.AppendLine(buildMetadataTable());
             body.AppendLine(Heading(2, content.Agents));
-            body.AppendLine(Paragraph("Sub-agents for this agent."));
+            body.AppendLine(Paragraph("Sub-agents are not available in the solution export."));
             SaveHtmlFile(Path.Combine(content.folderPath, agentsFileName),
                 WrapInHtmlPage($"Agents - {content.filename}", body.ToString(), getNavigationHtml()));
         }

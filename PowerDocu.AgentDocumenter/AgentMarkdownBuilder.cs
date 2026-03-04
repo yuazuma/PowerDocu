@@ -7,15 +7,14 @@ using System.Text;
 using PowerDocu.Common;
 using Grynwald.MarkdownGenerator;
 using Svg;
-using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace PowerDocu.AgentDocumenter
 {
     class AgentMarkdownBuilder : MarkdownBuilder
     {
         private readonly AgentDocumentationContent content;
-        private readonly string mainDocumentFileName, knowledgeFileName, toolsFileName, agentsFileName, topicsFileName, channelsFileName, settingsFileName;
-        private readonly MdDocument mainDocument, knowledgeDocument, toolsDocument, agentsDocument, topicsDocument, channelsDocument, settingsDocument;
+        private readonly string mainDocumentFileName, knowledgeFileName, toolsFileName, agentsFileName, topicsFileName, channelsFileName, settingsFileName, entitiesFileName, variablesFileName;
+        private readonly MdDocument mainDocument, knowledgeDocument, toolsDocument, agentsDocument, topicsDocument, channelsDocument, settingsDocument, entitiesDocument, variablesDocument;
         private readonly Dictionary<string, MdDocument> topicsDocuments = new Dictionary<string, MdDocument>();
         private readonly DocumentSet<MdDocument> set;
         private MdTable metadataTable;
@@ -31,6 +30,8 @@ namespace PowerDocu.AgentDocumenter
             topicsFileName = ("topics " + content.filename + ".md").Replace(" ", "-");
             channelsFileName = ("channels " + content.filename + ".md").Replace(" ", "-");
             settingsFileName = ("settings " + content.filename + ".md").Replace(" ", "-");
+            entitiesFileName = ("entities " + content.filename + ".md").Replace(" ", "-");
+            variablesFileName = ("variables " + content.filename + ".md").Replace(" ", "-");
             set = new DocumentSet<MdDocument>();
             mainDocument = set.CreateMdDocument(mainDocumentFileName);
             knowledgeDocument = set.CreateMdDocument(knowledgeFileName);
@@ -44,11 +45,15 @@ namespace PowerDocu.AgentDocumenter
             }
             channelsDocument = set.CreateMdDocument(channelsFileName);
             settingsDocument = set.CreateMdDocument(settingsFileName);
+            entitiesDocument = set.CreateMdDocument(entitiesFileName);
+            variablesDocument = set.CreateMdDocument(variablesFileName);
             addAgentOverview();
             addAgentKnowledgeInfo();
             addAgentTools();
             addAgentAgentsInfo();
             addAgentTopics();
+            addAgentEntities();
+            addAgentVariables();
             addAgentChannels();
             addAgentSettings();
             set.Save(content.folderPath);
@@ -155,7 +160,7 @@ namespace PowerDocu.AgentDocumenter
             tableRows.Add(new MdTableRow(content.headerDocumentationGenerated, PowerDocuReleaseHelper.GetTimestampWithVersion()));
             metadataTable = new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), tableRows);
             // prepare the common sections for top-level documents
-            foreach (MdDocument doc in new[] { mainDocument, knowledgeDocument, toolsDocument, agentsDocument, topicsDocument, channelsDocument, settingsDocument })
+            foreach (MdDocument doc in new[] { mainDocument, knowledgeDocument, toolsDocument, agentsDocument, topicsDocument, channelsDocument, settingsDocument, entitiesDocument, variablesDocument })
             {
                 doc.Root.Add(new MdHeading($"Agent - {content.filename}", 1));
                 doc.Root.Add(metadataTable);
@@ -179,16 +184,63 @@ namespace PowerDocu.AgentDocumenter
             mainDocument.Root.Add(new MdHeading(content.Instructions, 3));
             AddParagraphsWithLinebreaks(mainDocument, content.agent.GetInstructions());
             mainDocument.Root.Add(new MdHeading(content.Knowledge, 3));
-            foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
+            var knowledgeSources = content.agent.GetKnowledge();
+            var fileKnowledge = content.agent.GetFileKnowledge();
+            if (knowledgeSources.Count > 0 || fileKnowledge.Count > 0)
             {
-                mainDocument.Root.Add(new MdParagraph(new MdTextSpan(knowledgeSource.Name)));
+                List<MdTableRow> ksRows = new List<MdTableRow>();
+                foreach (BotComponent ks in knowledgeSources)
+                {
+                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
+                    string site = ks.GetKnowledgeSourceSite();
+                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
+                    ksRows.Add(new MdTableRow(ks.Name, sourceKind ?? "", details));
+                }
+                foreach (BotComponent fk in fileKnowledge)
+                {
+                    string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
+                    ksRows.Add(new MdTableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? ""));
+                }
+                mainDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Source Type", "Details" }), ksRows));
             }
-            mainDocument.Root.Add(new MdHeading(content.WebSearch, 3));
-            mainDocument.Root.Add(new MdParagraph(new MdTextSpan("TODO")));
+            else
+            {
+                mainDocument.Root.Add(new MdParagraph(new MdTextSpan("No knowledge sources configured.")));
+            }
+            mainDocument.Root.Add(new MdHeading(content.Tools, 3));
+            var overviewTools = content.agent.GetTools();
+            if (overviewTools.Count > 0)
+            {
+                List<MdListItem> toolsList = new List<MdListItem>();
+                foreach (BotComponent tool in overviewTools.OrderBy(t => t.Name))
+                {
+                    toolsList.Add(new MdListItem(tool.Name));
+                }
+                mainDocument.Root.Add(new MdBulletList(toolsList));
+            }
+            else
+            {
+                mainDocument.Root.Add(new MdParagraph(new MdTextSpan("No tools configured.")));
+            }
             mainDocument.Root.Add(new MdHeading(content.Triggers, 3));
-            mainDocument.Root.Add(new MdParagraph(new MdTextSpan("TODO")));
+            var overviewTriggers = content.agent.GetTriggers();
+            if (overviewTriggers.Count > 0)
+            {
+                List<MdListItem> triggersList = new List<MdListItem>();
+                foreach (BotComponent trigger in overviewTriggers.OrderBy(t => t.Name))
+                {
+                    var (triggerKind, flowId, connectionType) = trigger.GetTriggerDetails();
+                    string triggerInfo = !string.IsNullOrEmpty(connectionType) ? $" ({connectionType})" : "";
+                    triggersList.Add(new MdListItem(trigger.Name + triggerInfo));
+                }
+                mainDocument.Root.Add(new MdBulletList(triggersList));
+            }
+            else
+            {
+                mainDocument.Root.Add(new MdParagraph(new MdTextSpan("No triggers configured.")));
+            }
             mainDocument.Root.Add(new MdHeading(content.Agents, 3));
-            mainDocument.Root.Add(new MdParagraph(new MdTextSpan("TODO")));
+            mainDocument.Root.Add(new MdParagraph(new MdTextSpan("Sub-agents are not available in the solution export.")));
             mainDocument.Root.Add(new MdHeading(content.Topics, 3));
             List<MdListItem> topicsList = new List<MdListItem>();
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name))
@@ -213,6 +265,8 @@ namespace PowerDocu.AgentDocumenter
                 new MdListItem(new MdLinkSpan("Overview", topLevel ? mainDocumentFileName : "../" + mainDocumentFileName)),
                 new MdListItem(new MdLinkSpan("Knowledge", topLevel ? knowledgeFileName : "../" + knowledgeFileName)),
                 new MdListItem(new MdLinkSpan("Tools", topLevel ? toolsFileName : "../" + toolsFileName)),
+                new MdListItem(new MdLinkSpan("Entities", topLevel ? entitiesFileName : "../" + entitiesFileName)),
+                new MdListItem(new MdLinkSpan("Variables", topLevel ? variablesFileName : "../" + variablesFileName)),
                 new MdListItem(new MdLinkSpan("Agents", topLevel ? agentsFileName : "../" + agentsFileName)),
                 new MdListItem(new MdLinkSpan("Topics", topLevel ? topicsFileName : "../" + topicsFileName)),
                 new MdListItem(new MdLinkSpan("Channels", topLevel ? channelsFileName : "../" + channelsFileName)),
@@ -258,9 +312,30 @@ namespace PowerDocu.AgentDocumenter
         {
             knowledgeDocument.Root.Add(new MdHeading(content.Knowledge, 2));
             knowledgeDocument.Root.Add(new MdParagraph(new MdTextSpan("Knowledge sources for this agent.")));
-            foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
+
+            var knowledgeSources = content.agent.GetKnowledge();
+            var fileKnowledge = content.agent.GetFileKnowledge();
+
+            if (knowledgeSources.Count > 0 || fileKnowledge.Count > 0)
             {
-                knowledgeDocument.Root.Add(new MdHeading(knowledgeSource.Name, 3));
+                List<MdTableRow> ksRows = new List<MdTableRow>();
+                foreach (BotComponent ks in knowledgeSources)
+                {
+                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
+                    string site = ks.GetKnowledgeSourceSite();
+                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
+                    ksRows.Add(new MdTableRow(ks.Name, sourceKind ?? "", details, ks.Description ?? ""));
+                }
+                foreach (BotComponent fk in fileKnowledge)
+                {
+                    string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
+                    ksRows.Add(new MdTableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? "", fk.Description ?? ""));
+                }
+                knowledgeDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Source Type", "Details", "Description" }), ksRows));
+            }
+            else
+            {
+                knowledgeDocument.Root.Add(new MdParagraph(new MdTextSpan("No knowledge sources configured.")));
             }
         }
 
@@ -365,172 +440,168 @@ namespace PowerDocu.AgentDocumenter
             }
         }
 
-        private MdBulletList CreateControlList(ControlEntity control)
-        {
-            var svgDocument = SvgDocument.FromSvg<SvgDocument>(AppControlIcons.GetControlIcon(control.Type));
-            //generating the PNG from the SVG with a width of 16px because some SVGs are huge and downscaled, thus can't be shown directly
-            using (var bitmap = svgDocument.Draw(16, 0))
-            {
-                bitmap?.Save(content.folderPath + @"resources\" + control.Type + ".png");
-            }
-            //link to the screen instead of the control directly for the moment, as the directly generated anchor link (#" + control.Name.ToLower()) doesn't work the same way in DevOps and GitHub
-            MdBulletList list = new MdBulletList(){
-                                     new MdListItem(new MdLinkSpan(
-                                            new MdCompositeSpan(
-                                                new MdImageSpan(control.Type, "resources/"+control.Type+".png"),
-                                                new MdTextSpan(" "+control.Name))
-                                        ,("screen " + CharsetHelper.GetSafeName(control.Screen().Name) + " " + content.filename + ".md").Replace(" ", "-")))};
-
-            foreach (ControlEntity child in control.Children.OrderBy(o => o.Name).ToList())
-            {
-                list.Add(new MdListItem(CreateControlList(child)));
-            }
-            return list;
-        }
-
         private void addAgentChannels()
         {
             channelsDocument.Root.Add(new MdHeading("Channels", 2));
             channelsDocument.Root.Add(new MdParagraph(new MdTextSpan("Channels are not exported with the solution and are not documented automatically.")));
         }
-        /*
-                private void addAppControlsTable(ControlEntity control, MdDocument screenDoc)
-                {
-                    Entity defaultEntity = DefaultChangeHelper.GetEntityDefaults(control.Type);
-                    List<MdTableRow> tableRows = new List<MdTableRow>();
-                    var svgDocument = SvgDocument.FromSvg<SvgDocument>(AppControlIcons.GetControlIcon(control.Type));
-                    //generating the PNG from the SVG with a width of 16px because some SVGs are huge and downscaled, thus can't be shown directly
-                    using (var bitmap = svgDocument.Draw(16, 0))
-                    {
-                        bitmap?.Save(content.folderPath + @"resources\" + control.Type + ".png");
-                    }
-                    tableRows.Add(new MdTableRow(new MdImageSpan(control.Type, "resources/" + control.Type + ".png"), new MdTextSpan("Type: " + control.Type)));
 
-                    string category = "";
-                    foreach (Rule rule in control.Rules.OrderBy(o => o.Category).ThenBy(o => o.Property).ToList())
-                    {
-                        string defaultValue = defaultEntity?.Rules.Find(r => r.Property == rule.Property)?.InvariantScript;
-                        if (String.IsNullOrEmpty(defaultValue))
-                            defaultValue = DefaultChangeHelper.DefaultValueIfUnknown;
-                        if (!documentChangedDefaultsOnly || (defaultValue != rule.InvariantScript))
-                        {
-                            if (!content.ColourProperties.Contains(rule.Property))
-                            {
-                                if (rule.Category != category)
-                                {
-                                    if (tableRows.Count > 0)
-                                    {
-                                        screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
-                                        tableRows = new List<MdTableRow>();
-                                    }
-                                    category = rule.Category;
-                                    screenDoc.Root.Add(new MdHeading(category, 3));
-                                }
-                                if (rule.InvariantScript.StartsWith("RGBA("))
-                                {
-                                    tableRows.Add(CreateColorTable(rule, defaultValue));
-                                }
-                                else
-                                {
-                                    tableRows.Add(CreateRowForControlProperty(rule, defaultValue));
-                                }
-                            }
-                        }
-                    }
-                    if (tableRows.Count > 0)
-                        screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
-                    //Colour properties
-                    tableRows = new List<MdTableRow>();
-                    screenDoc.Root.Add(new MdHeading("Color Properties", 3));
-                    foreach (string property in content.ColourProperties)
-                    {
-                        Rule rule = control.Rules.Find(o => o.Property == property);
-                        if (rule != null)
-                        {
-                            string defaultValue = defaultEntity?.Rules.Find(r => r.Property == rule.Property)?.InvariantScript;
-                            if (String.IsNullOrEmpty(defaultValue))
-                                defaultValue = DefaultChangeHelper.DefaultValueIfUnknown;
-                            if (!documentChangedDefaultsOnly || defaultValue != rule.InvariantScript)
-                            {
-                                if (rule.InvariantScript.StartsWith("RGBA("))
-                                {
-                                    tableRows.Add(CreateColorTable(rule, defaultValue));
-                                }
-                                else
-                                {
-                                    tableRows.Add(new MdTableRow(rule.Property, $"`{rule.InvariantScript}`"));
-                                }
-                            }
-                        }
-                    }
-                    if (tableRows.Count > 0)
-                        screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
-                    tableRows = new List<MdTableRow>();
-                    screenDoc.Root.Add(new MdHeading("Child & Parent Controls", 3));
-
-                    foreach (ControlEntity childControl in control.Children)
-                    {
-                        tableRows.Add(new MdTableRow("Child Control", childControl.Name));
-                    }
-                    if (control.Parent != null)
-                    {
-                        tableRows.Add(new MdTableRow("Parent Control", control.Parent.Name));
-                    }
-                    if (tableRows.Count > 0)
-                        screenDoc.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
-                }
-
-
-                private MdTableRow CreateColorTable(Rule rule, string defaultValue)
-                {
-                    StringBuilder colourTable = new StringBuilder("<table border=\"0\">");
-                    colourTable.Append("<tr><td>").Append(rule.InvariantScript).Append("</td></tr>");
-                    string colour = ColourHelper.ParseColor(rule.InvariantScript[..(rule.InvariantScript.IndexOf(')') + 1)]);
-                    if (!String.IsNullOrEmpty(colour))
-                    {
-                        colourTable.Append("<tr><td style=\"background-color:").Append(colour).Append("\"></td></tr>");
-                    }
-                    colourTable.Append("</table>");
-                    if (showDefaults && defaultValue != rule.InvariantScript && !content.appControls.controlPropertiesToSkip.Contains(rule.Property))
-                    {
-                        StringBuilder defaultTable = new StringBuilder("<table border=\"0\">");
-                        defaultTable.Append("<tr><td>").Append(defaultValue).Append("</td></tr>");
-                        string defaultColour = ColourHelper.ParseColor(defaultValue);
-                        if (!String.IsNullOrEmpty(defaultColour))
-                        {
-                            defaultTable.Append("<tr><td style=\"background-color:").Append(defaultColour).Append("\"></td></tr>");
-                        }
-                        defaultTable.Append("</table>");
-                        StringBuilder changesTable = new StringBuilder("<table border=\"0\">");
-                        changesTable.Append(CreateChangedDefaultColourRow(colourTable.ToString(), defaultTable.ToString()));
-                        return new MdTableRow(rule.Property, new MdRawMarkdownSpan(changesTable.Append("</table>").ToString()));
-                    }
-                    return new MdTableRow(rule.Property, new MdRawMarkdownSpan(colourTable.ToString()));
-                }
-
-                private MdTableRow CreateRowForControlProperty(Rule rule, string defaultValue)
-                {
-                    if (showDefaults && defaultValue != rule.InvariantScript && !content.appControls.controlPropertiesToSkip.Contains(rule.Property))
-                    {
-                        StringBuilder table = new StringBuilder("<table border=\"0\">");
-                        table.Append("<tr><td style=\"background-color:#ccffcc; width:50%;\">")
-                             .Append($"`{rule.InvariantScript}`")
-                             .Append("<td style=\"background-color:#ffcccc; width:50%;\">").Append(defaultValue).Append("</td></tr></table>");
-                        return new MdTableRow(rule.Property, new MdRawMarkdownSpan(table.ToString()));
-                    }
-                    return new MdTableRow(rule.Property, $"`{rule.InvariantScript}`");
-                }
-        */
         private void addAgentTools()
         {
             toolsDocument.Root.Add(new MdHeading(content.Tools, 2));
-            toolsDocument.Root.Add(new MdParagraph(new MdTextSpan("Tools available for this agent.")));
+
+            var tools = content.agent.GetTools();
+            if (tools.Count == 0)
+            {
+                toolsDocument.Root.Add(new MdParagraph(new MdTextSpan("No tools configured.")));
+                return;
+            }
+
+            // Summary table
+            List<MdTableRow> summaryRows = new List<MdTableRow>();
+            foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+            {
+                var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
+                string actionTypeDisplay = actionKind switch
+                {
+                    "InvokeConnectorTaskAction" => "Connector",
+                    "InvokeFlowTaskAction" => "Power Automate Flow",
+                    _ => actionKind
+                };
+                summaryRows.Add(new MdTableRow(tool.Name, actionTypeDisplay, !string.IsNullOrEmpty(connectionRef) ? connectionRef : "", !string.IsNullOrEmpty(operationId) ? operationId : ""));
+            }
+            toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Action Type", "Connection", "Operation" }), summaryRows));
+
+            // Detail per tool
+            foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+            {
+                toolsDocument.Root.Add(new MdHeading(tool.Name, 3));
+                var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
+
+                List<MdTableRow> detailRows = new List<MdTableRow>();
+                if (!string.IsNullOrEmpty(modelDisplayName))
+                    detailRows.Add(new MdTableRow("Display Name", modelDisplayName));
+                if (!string.IsNullOrEmpty(tool.Description))
+                    detailRows.Add(new MdTableRow("Description", tool.Description));
+                string actionTypeDisplay = actionKind switch
+                {
+                    "InvokeConnectorTaskAction" => "Connector",
+                    "InvokeFlowTaskAction" => "Power Automate Flow",
+                    _ => actionKind
+                };
+                detailRows.Add(new MdTableRow("Action Type", actionTypeDisplay));
+                if (!string.IsNullOrEmpty(connectionRef))
+                    detailRows.Add(new MdTableRow("Connection Reference", connectionRef));
+                if (!string.IsNullOrEmpty(operationId))
+                    detailRows.Add(new MdTableRow("Operation", operationId));
+                if (!string.IsNullOrEmpty(flowId))
+                    detailRows.Add(new MdTableRow("Flow ID", flowId));
+                if (detailRows.Count > 0)
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), detailRows));
+
+                if (inputs.Count > 0)
+                {
+                    toolsDocument.Root.Add(new MdHeading("Inputs", 4));
+                    List<MdTableRow> inputRows = new List<MdTableRow>();
+                    foreach (string input in inputs)
+                    {
+                        inputRows.Add(new MdTableRow(input));
+                    }
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Input" }), inputRows));
+                }
+
+                if (outputs.Count > 0)
+                {
+                    toolsDocument.Root.Add(new MdHeading("Outputs", 4));
+                    List<MdTableRow> outputRows = new List<MdTableRow>();
+                    foreach (string output in outputs)
+                    {
+                        outputRows.Add(new MdTableRow(output));
+                    }
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Output" }), outputRows));
+                }
+            }
+        }
+
+        private void addAgentEntities()
+        {
+            entitiesDocument.Root.Add(new MdHeading(content.Entities, 2));
+
+            var entities = content.agent.GetEntities();
+            if (entities.Count == 0)
+            {
+                entitiesDocument.Root.Add(new MdParagraph(new MdTextSpan("No custom entities defined.")));
+                return;
+            }
+
+            foreach (BotComponent entity in entities.OrderBy(e => e.Name))
+            {
+                string entityKind = entity.GetTopicKind();
+                entitiesDocument.Root.Add(new MdHeading(entity.Name, 3));
+
+                List<MdTableRow> metaRows = new List<MdTableRow>
+                {
+                    new MdTableRow("Name", entity.Name),
+                    new MdTableRow("Kind", entityKind)
+                };
+                if (!string.IsNullOrEmpty(entity.Description))
+                    metaRows.Add(new MdTableRow("Description", entity.Description));
+
+                if (entityKind == "RegexEntity")
+                {
+                    string pattern = entity.GetEntityPattern();
+                    if (!string.IsNullOrEmpty(pattern))
+                        metaRows.Add(new MdTableRow("Pattern", $"`{pattern}`"));
+                }
+                entitiesDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), metaRows));
+
+                if (entityKind == "ClosedListEntity")
+                {
+                    var items = entity.GetEntityItems();
+                    if (items.Count > 0)
+                    {
+                        entitiesDocument.Root.Add(new MdHeading("Items", 4));
+                        List<MdTableRow> itemRows = new List<MdTableRow>();
+                        foreach (var (id, displayName) in items)
+                        {
+                            itemRows.Add(new MdTableRow(displayName, id));
+                        }
+                        entitiesDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Display Name", "ID" }), itemRows));
+                    }
+                }
+            }
+        }
+
+        private void addAgentVariables()
+        {
+            variablesDocument.Root.Add(new MdHeading(content.Variables, 2));
+
+            var variables = content.agent.GetVariables();
+            if (variables.Count == 0)
+            {
+                variablesDocument.Root.Add(new MdParagraph(new MdTextSpan("No global variables defined.")));
+                return;
+            }
+
+            List<MdTableRow> varRows = new List<MdTableRow>();
+            foreach (BotComponent variable in variables.OrderBy(v => v.Name))
+            {
+                var (scope, aiVisibility, dataType, isExternalInit) = variable.GetVariableDetails();
+                varRows.Add(new MdTableRow(
+                    variable.Name,
+                    scope,
+                    dataType,
+                    aiVisibility,
+                    isExternalInit ? "Yes" : "No",
+                    variable.Description ?? ""));
+            }
+            variablesDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Scope", "Data Type", "AI Visibility", "External Init", "Description" }), varRows));
         }
 
         private void addAgentAgentsInfo()
         {
             agentsDocument.Root.Add(new MdHeading(content.Agents, 2));
-            agentsDocument.Root.Add(new MdParagraph(new MdTextSpan("Sub-agents for this agent.")));
+            agentsDocument.Root.Add(new MdParagraph(new MdTextSpan("Sub-agents are not available in the solution export.")));
         }
 
         private void AddParagraphsWithLinebreaks(MdDocument document, string text)

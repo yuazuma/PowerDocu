@@ -25,6 +25,9 @@ namespace PowerDocu.AgentDocumenter
             body = mainPart.Document.Body;
             PrepareDocument(!String.IsNullOrEmpty(template));
             addAgentOverview();
+            addAgentTools();
+            addAgentEntities();
+            addAgentVariables();
             addAgentChannels();
             addAgentSettings();
             addAgentTopicsOverview();
@@ -102,31 +105,75 @@ namespace PowerDocu.AgentDocumenter
             run = para.AppendChild(new Run());
             run.AppendChild(new Text(content.Knowledge));
             ApplyStyleToParagraph("Heading3", para);
-            foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
+            var knowledgeSources = content.agent.GetKnowledge();
+            var fileKnowledge = content.agent.GetFileKnowledge();
+            if (knowledgeSources.Count > 0 || fileKnowledge.Count > 0)
             {
-                body.AppendChild(new Paragraph(new Run(new Text(knowledgeSource.Name))));
+                Table knowledgeTable = CreateTable();
+                knowledgeTable.Append(CreateHeaderRow(new Text("Name"), new Text("Source Type"), new Text("Details")));
+                foreach (BotComponent ks in knowledgeSources)
+                {
+                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
+                    string site = ks.GetKnowledgeSourceSite();
+                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
+                    knowledgeTable.Append(CreateRow(new Text(ks.Name), new Text(sourceKind ?? ""), new Text(details)));
+                }
+                foreach (BotComponent fk in fileKnowledge)
+                {
+                    string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
+                    knowledgeTable.Append(CreateRow(new Text(fk.Name), new Text("File" + mimeType), new Text(fk.FileDataName ?? "")));
+                }
+                body.Append(knowledgeTable);
+            }
+            else
+            {
+                body.AppendChild(new Paragraph(new Run(new Text("No knowledge sources configured."))));
             }
 
-            // Web Search
+            // Tools
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.WebSearch));
+            run.AppendChild(new Text(content.Tools));
             ApplyStyleToParagraph("Heading3", para);
-            body.AppendChild(new Paragraph(new Run(new Text("TODO"))));
+            var tools = content.agent.GetTools();
+            if (tools.Count > 0)
+            {
+                foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+                {
+                    body.AppendChild(new Paragraph(new Run(new Text(tool.Name))));
+                }
+            }
+            else
+            {
+                body.AppendChild(new Paragraph(new Run(new Text("No tools configured."))));
+            }
 
             // Triggers
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
             run.AppendChild(new Text(content.Triggers));
             ApplyStyleToParagraph("Heading3", para);
-            body.AppendChild(new Paragraph(new Run(new Text("TODO"))));
+            var triggers = content.agent.GetTriggers();
+            if (triggers.Count > 0)
+            {
+                foreach (BotComponent trigger in triggers.OrderBy(t => t.Name))
+                {
+                    var (triggerKind, flowId, connectionType) = trigger.GetTriggerDetails();
+                    string triggerInfo = !string.IsNullOrEmpty(connectionType) ? $" ({connectionType})" : "";
+                    body.AppendChild(new Paragraph(new Run(new Text(trigger.Name + triggerInfo))));
+                }
+            }
+            else
+            {
+                body.AppendChild(new Paragraph(new Run(new Text("No triggers configured."))));
+            }
 
             // Agents
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
             run.AppendChild(new Text(content.Agents));
             ApplyStyleToParagraph("Heading3", para);
-            body.AppendChild(new Paragraph(new Run(new Text("TODO"))));
+            body.AppendChild(new Paragraph(new Run(new Text("Sub-agents are not available in the solution export."))));
 
             // Topics
             para = body.AppendChild(new Paragraph());
@@ -299,6 +346,171 @@ namespace PowerDocu.AgentDocumenter
                 }
             }
         }
+        private void addAgentTools()
+        {
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Tools));
+            ApplyStyleToParagraph("Heading1", para);
+
+            var tools = content.agent.GetTools();
+            if (tools.Count == 0)
+            {
+                body.AppendChild(new Paragraph(new Run(new Text("No tools configured."))));
+                return;
+            }
+
+            foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+            {
+                para = body.AppendChild(new Paragraph());
+                run = para.AppendChild(new Run());
+                run.AppendChild(new Text("Tool: " + tool.Name));
+                ApplyStyleToParagraph("Heading2", para);
+
+                var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
+
+                Table table = CreateTable();
+                table.Append(CreateRow(new Text("Name"), new Text(tool.Name)));
+                if (!string.IsNullOrEmpty(modelDisplayName))
+                    table.Append(CreateRow(new Text("Display Name"), new Text(modelDisplayName)));
+                if (!string.IsNullOrEmpty(tool.Description))
+                    table.Append(CreateRow(new Text("Description"), new Text(tool.Description)));
+
+                string actionTypeDisplay = actionKind switch
+                {
+                    "InvokeConnectorTaskAction" => "Connector",
+                    "InvokeFlowTaskAction" => "Power Automate Flow",
+                    _ => actionKind
+                };
+                table.Append(CreateRow(new Text("Action Type"), new Text(actionTypeDisplay)));
+
+                if (!string.IsNullOrEmpty(connectionRef))
+                    table.Append(CreateRow(new Text("Connection Reference"), new Text(connectionRef)));
+                if (!string.IsNullOrEmpty(operationId))
+                    table.Append(CreateRow(new Text("Operation"), new Text(operationId)));
+                if (!string.IsNullOrEmpty(flowId))
+                    table.Append(CreateRow(new Text("Flow ID"), new Text(flowId)));
+                body.Append(table);
+                body.AppendChild(new Paragraph(new Run(new Break())));
+
+                if (inputs.Count > 0)
+                {
+                    para = body.AppendChild(new Paragraph());
+                    run = para.AppendChild(new Run());
+                    run.AppendChild(new Text("Inputs"));
+                    ApplyStyleToParagraph("Heading3", para);
+
+                    Table inputTable = CreateTable();
+                    inputTable.Append(CreateHeaderRow(new Text("Input")));
+                    foreach (string input in inputs)
+                    {
+                        inputTable.Append(CreateRow(new Text(input)));
+                    }
+                    body.Append(inputTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                if (outputs.Count > 0)
+                {
+                    para = body.AppendChild(new Paragraph());
+                    run = para.AppendChild(new Run());
+                    run.AppendChild(new Text("Outputs"));
+                    ApplyStyleToParagraph("Heading3", para);
+
+                    Table outputTable = CreateTable();
+                    outputTable.Append(CreateHeaderRow(new Text("Output")));
+                    foreach (string output in outputs)
+                    {
+                        outputTable.Append(CreateRow(new Text(output)));
+                    }
+                    body.Append(outputTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+            }
+        }
+
+        private void addAgentEntities()
+        {
+            var entities = content.agent.GetEntities();
+            if (entities.Count == 0) return;
+
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Entities));
+            ApplyStyleToParagraph("Heading1", para);
+
+            foreach (BotComponent entity in entities.OrderBy(e => e.Name))
+            {
+                para = body.AppendChild(new Paragraph());
+                run = para.AppendChild(new Run());
+                run.AppendChild(new Text("Entity: " + entity.Name));
+                ApplyStyleToParagraph("Heading2", para);
+
+                string entityKind = entity.GetTopicKind();
+                Table table = CreateTable();
+                table.Append(CreateRow(new Text("Name"), new Text(entity.Name)));
+                table.Append(CreateRow(new Text("Kind"), new Text(entityKind)));
+                if (!string.IsNullOrEmpty(entity.Description))
+                    table.Append(CreateRow(new Text("Description"), new Text(entity.Description)));
+
+                if (entityKind == "RegexEntity")
+                {
+                    string pattern = entity.GetEntityPattern();
+                    if (!string.IsNullOrEmpty(pattern))
+                        table.Append(CreateRow(new Text("Pattern"), new Text(pattern)));
+                }
+                body.Append(table);
+                body.AppendChild(new Paragraph(new Run(new Break())));
+
+                if (entityKind == "ClosedListEntity")
+                {
+                    var items = entity.GetEntityItems();
+                    if (items.Count > 0)
+                    {
+                        para = body.AppendChild(new Paragraph());
+                        run = para.AppendChild(new Run());
+                        run.AppendChild(new Text("Items"));
+                        ApplyStyleToParagraph("Heading3", para);
+
+                        Table itemsTable = CreateTable();
+                        itemsTable.Append(CreateHeaderRow(new Text("Display Name"), new Text("ID")));
+                        foreach (var (id, displayName) in items)
+                        {
+                            itemsTable.Append(CreateRow(new Text(displayName), new Text(id)));
+                        }
+                        body.Append(itemsTable);
+                        body.AppendChild(new Paragraph(new Run(new Break())));
+                    }
+                }
+            }
+        }
+
+        private void addAgentVariables()
+        {
+            var variables = content.agent.GetVariables();
+            if (variables.Count == 0) return;
+
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Variables));
+            ApplyStyleToParagraph("Heading1", para);
+
+            Table table = CreateTable();
+            table.Append(CreateHeaderRow(new Text("Name"), new Text("Scope"), new Text("Data Type"), new Text("AI Visibility"), new Text("External Init")));
+            foreach (BotComponent variable in variables.OrderBy(v => v.Name))
+            {
+                var (scope, aiVisibility, dataType, isExternalInit) = variable.GetVariableDetails();
+                table.Append(CreateRow(
+                    new Text(variable.Name),
+                    new Text(scope),
+                    new Text(dataType),
+                    new Text(aiVisibility),
+                    new Text(isExternalInit ? "Yes" : "No")));
+            }
+            body.Append(table);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+        }
+
         private void addAgentChannels()
         {
             Paragraph para = body.AppendChild(new Paragraph());
