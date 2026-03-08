@@ -247,7 +247,7 @@ namespace PowerDocu.GUI
             // Flows Checkbox
             flowsCheckBox = new CheckBox()
             {
-                Text = "Cloud & Agent Flows",
+                Text = "Cloud + Agent Flows",
                 Location = new Point(convertToDPISpecific(15), documentDefaultColumnsCheckBox.Location.Y + documentDefaultColumnsCheckBox.Height + convertToDPISpecific(10)),
                 Checked = true,
                 AutoSize = true
@@ -492,6 +492,7 @@ namespace PowerDocu.GUI
                 IconColor = Color.Green,
                 IconSize = convertToDPISpecific(32),
                 IconFont = IconFont.Auto,
+                ImageAlign = ContentAlignment.MiddleCenter,
                 Visible = true
             };
             updateConnectorIconsButton.Click += new EventHandler(UpdateConnectorIconsButton_Click);
@@ -514,6 +515,7 @@ namespace PowerDocu.GUI
                 IconColor = Color.Green,
                 IconSize = convertToDPISpecific(32),
                 IconFont = IconFont.Auto,
+                ImageAlign = ContentAlignment.MiddleCenter,
                 Visible = false
             };
             newReleaseButton.Click += new EventHandler(NewReleaseButton_Click);
@@ -587,7 +589,7 @@ namespace PowerDocu.GUI
                 IconColor = Color.Purple,
                 IconSize = convertToDPISpecific(32),
                 IconFont = IconFont.Auto,
-
+                ImageAlign = ContentAlignment.MiddleCenter,
             };
             selectFileToParseButton.Click += new EventHandler(SelectZIPFileButton_Click);
             generateDocuPanel.Controls.Add(selectFileToParseButton);
@@ -608,6 +610,7 @@ namespace PowerDocu.GUI
                 IconColor = Color.Green,
                 IconSize = convertToDPISpecific(32),
                 IconFont = IconFont.Auto,
+                ImageAlign = ContentAlignment.MiddleCenter,
                 Visible = false
             };
             startDocumentationButton.Click += new EventHandler(StartDocumentationButton_Click);
@@ -620,6 +623,7 @@ namespace PowerDocu.GUI
                 IconColor = Color.Green,
                 IconSize = convertToDPISpecific(32),
                 IconFont = IconFont.Auto,
+                ImageAlign = ContentAlignment.MiddleCenter,
                 Visible = false
             };
             startImageGenerationButton.Click += new EventHandler(StartImageGenerationButton_Click);
@@ -632,6 +636,7 @@ namespace PowerDocu.GUI
                 IconColor = Color.Orange,
                 IconSize = convertToDPISpecific(32),
                 IconFont = IconFont.Auto,
+                ImageAlign = ContentAlignment.MiddleCenter,
                 Visible = false
             };
             openOutputFolderButton.Click += new EventHandler(openOutputFolderButton_Click);
