@@ -47,7 +47,7 @@ namespace PowerDocu.AppDocumenter
                 BuildScreenNavigationGraph(app, folderPath);
                 if (context.FullDocumentation)
                 {
-                    AppDocumentationContent content = new AppDocumentationContent(app, path);
+                    AppDocumentationContent content = new AppDocumentationContent(app, path, context);
                     string wordTemplate = (!String.IsNullOrEmpty(context.Config.wordTemplate) && File.Exists(context.Config.wordTemplate))
                         ? context.Config.wordTemplate : null;
                     if (context.Config.outputFormat.Equals(OutputFormatHelper.Word) || context.Config.outputFormat.Equals(OutputFormatHelper.All))

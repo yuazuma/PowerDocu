@@ -321,6 +321,14 @@ namespace PowerDocu.AppDocumenter
                             }
                             dsBody.AppendLine(TableEnd());
 
+                            // Cross-doc link to solution table documentation
+                            if (content.context?.Config?.documentSolution == true && content.context?.Solution != null
+                                && !string.IsNullOrEmpty(tdInfo.LogicalName))
+                            {
+                                string solutionHtml = CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName);
+                                string anchor = CrossDocLinkHelper.GetSolutionTableHtmlAnchor(tdInfo.LogicalName);
+                                dsBody.AppendLine(Paragraph("See " + Link("full table documentation in the solution", "../" + solutionHtml + anchor)));
+                            }
                         }
                     }
                     SaveHtmlFile(Path.Combine(content.folderPath, dsFileName),

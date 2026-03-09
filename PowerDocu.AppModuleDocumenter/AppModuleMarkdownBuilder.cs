@@ -71,11 +71,24 @@ namespace PowerDocu.AppModuleDocumenter
             mainDocument.Root.Add(new MdHeading(content.headerSecurityRoles, 2));
             mainDocument.Root.Add(new MdParagraph(new MdTextSpan($"This app has {content.appModule.SecurityRoleIds.Count} security role(s) assigned.")));
 
+            bool canLinkSolution = content.context?.Config?.documentSolution == true && content.context?.Solution != null;
+            string solutionMdPath = canLinkSolution ? CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName) : null;
+
             List<MdTableRow> tableRows = new List<MdTableRow>();
             foreach (string roleId in content.appModule.SecurityRoleIds)
             {
                 string roleName = content.GetRoleNameById(roleId);
-                tableRows.Add(new MdTableRow(roleName, roleId));
+                MdSpan roleCell;
+                if (canLinkSolution)
+                {
+                    string anchor = CrossDocLinkHelper.GetSolutionRoleMdAnchor(roleName, roleId);
+                    roleCell = new MdLinkSpan(roleName, "../" + solutionMdPath + anchor);
+                }
+                else
+                {
+                    roleCell = new MdTextSpan(roleName);
+                }
+                tableRows.Add(new MdTableRow(roleCell, new MdTextSpan(roleId)));
             }
             mainDocument.Root.Add(new MdTable(new MdTableRow("Role Name", "Role ID"), tableRows));
         }
@@ -116,12 +129,26 @@ namespace PowerDocu.AppModuleDocumenter
 
                     if (group.SubAreas.Count > 0)
                     {
+                        bool canLinkSolutionNav = content.context?.Config?.documentSolution == true && content.context?.Solution != null;
+                        string solutionMdNav = canLinkSolutionNav ? CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName) : null;
+
                         List<MdTableRow> subAreaRows = new List<MdTableRow>();
                         foreach (var subArea in group.SubAreas)
                         {
                             string title = !string.IsNullOrEmpty(subArea.Title) ? subArea.Title : subArea.Id;
                             string target = subArea.GetTargetDescription();
-                            subAreaRows.Add(new MdTableRow(title, target));
+                            MdSpan targetCell;
+                            if (canLinkSolutionNav && !string.IsNullOrEmpty(subArea.Entity))
+                            {
+                                string displayName = content.GetTableDisplayName(subArea.Entity);
+                                string anchor = CrossDocLinkHelper.GetSolutionTableMdAnchor(displayName, subArea.Entity);
+                                targetCell = new MdLinkSpan(target, "../" + solutionMdNav + anchor);
+                            }
+                            else
+                            {
+                                targetCell = new MdTextSpan(target);
+                            }
+                            subAreaRows.Add(new MdTableRow(new MdTextSpan(title), targetCell));
                         }
                         mainDocument.Root.Add(new MdTable(new MdTableRow("Navigation Item", "Target"), subAreaRows));
                     }
@@ -137,11 +164,24 @@ namespace PowerDocu.AppModuleDocumenter
             mainDocument.Root.Add(new MdHeading(content.headerTables, 2));
             mainDocument.Root.Add(new MdParagraph(new MdTextSpan($"This app includes {tables.Count} table(s).")));
 
+            bool canLinkSolution = content.context?.Config?.documentSolution == true && content.context?.Solution != null;
+            string solutionMdPath = canLinkSolution ? CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName) : null;
+
             List<MdTableRow> tableRows = new List<MdTableRow>();
             foreach (var comp in tables.OrderBy(c => c.SchemaName))
             {
                 string displayName = content.GetTableDisplayName(comp.SchemaName);
-                tableRows.Add(new MdTableRow(displayName, comp.SchemaName));
+                MdSpan nameCell;
+                if (canLinkSolution)
+                {
+                    string anchor = CrossDocLinkHelper.GetSolutionTableMdAnchor(displayName, comp.SchemaName);
+                    nameCell = new MdLinkSpan(displayName, "../" + solutionMdPath + anchor);
+                }
+                else
+                {
+                    nameCell = new MdTextSpan(displayName);
+                }
+                tableRows.Add(new MdTableRow(nameCell, new MdTextSpan(comp.SchemaName)));
             }
             mainDocument.Root.Add(new MdTable(new MdTableRow("Display Name", "Schema Name"), tableRows));
         }
@@ -154,12 +194,34 @@ namespace PowerDocu.AppModuleDocumenter
             mainDocument.Root.Add(new MdHeading(content.headerViews, 2));
             mainDocument.Root.Add(new MdParagraph(new MdTextSpan($"This app includes {views.Count} view(s).")));
 
+            bool canLinkSolution = content.context?.Config?.documentSolution == true && content.context?.Solution != null;
+            string solutionMdPath = canLinkSolution ? CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName) : null;
+
             List<MdTableRow> tableRows = new List<MdTableRow>();
             var viewDetails = views.Select(comp => (comp, details: content.GetViewDetails(comp.ID)))
                 .OrderBy(v => v.details.TableName).ThenBy(v => v.details.ViewName);
             foreach (var (comp, details) in viewDetails)
             {
-                tableRows.Add(new MdTableRow(details.TableName, details.ViewName, details.QueryType, comp.ID));
+                MdSpan tableCell;
+                if (canLinkSolution && !string.IsNullOrEmpty(details.TableName))
+                {
+                    TableEntity tableEntity = content.allTables.FirstOrDefault(t =>
+                        (t.getLocalizedName() ?? "").Equals(details.TableName, System.StringComparison.OrdinalIgnoreCase));
+                    if (tableEntity != null)
+                    {
+                        string anchor = CrossDocLinkHelper.GetSolutionTableMdAnchor(tableEntity.getLocalizedName(), tableEntity.getName());
+                        tableCell = new MdLinkSpan(details.TableName, "../" + solutionMdPath + anchor);
+                    }
+                    else
+                    {
+                        tableCell = new MdTextSpan(details.TableName);
+                    }
+                }
+                else
+                {
+                    tableCell = new MdTextSpan(details.TableName);
+                }
+                tableRows.Add(new MdTableRow(tableCell, new MdTextSpan(details.ViewName), new MdTextSpan(details.QueryType), new MdTextSpan(comp.ID)));
             }
             mainDocument.Root.Add(new MdTable(new MdTableRow("Table", "View", "Query Type", "ID"), tableRows));
         }
@@ -178,7 +240,7 @@ namespace PowerDocu.AppModuleDocumenter
                 string displayName = content.GetCustomPageDisplayName(page);
                 AppEntity app = content.GetCanvasAppForPage(page);
                 string canvasAppCell;
-                if (app != null)
+                if (app != null && content.context?.Config?.documentApps == true)
                 {
                     string safeFilename = CharsetHelper.GetSafeName(app.Name);
                     string indexFile = ("index-" + safeFilename + ".md").Replace(" ", "-");

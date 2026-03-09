@@ -103,7 +103,16 @@ namespace PowerDocu.AppModuleDocumenter
             foreach (string roleId in content.appModule.SecurityRoleIds)
             {
                 string roleName = content.GetRoleNameById(roleId);
-                body.Append(TableRow(roleName, roleId));
+                if (content.context?.Config?.documentSolution == true && content.context?.Solution != null)
+                {
+                    string solutionHtml = CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName);
+                    string anchor = CrossDocLinkHelper.GetSolutionRoleHtmlAnchor(roleName);
+                    body.Append(TableRowRaw(Link(roleName, "../" + solutionHtml + anchor), Encode(roleId)));
+                }
+                else
+                {
+                    body.Append(TableRow(roleName, roleId));
+                }
             }
             body.AppendLine(TableEnd());
         }
@@ -142,11 +151,22 @@ namespace PowerDocu.AppModuleDocumenter
                     if (group.SubAreas.Count > 0)
                     {
                         body.Append(TableStart("Navigation Item", "Target"));
+                        bool canLinkSolutionNav = content.context?.Config?.documentSolution == true && content.context?.Solution != null;
+                        string solutionHtmlNav = canLinkSolutionNav ? CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName) : null;
                         foreach (var subArea in group.SubAreas)
                         {
                             string title = !string.IsNullOrEmpty(subArea.Title) ? subArea.Title : subArea.Id;
                             string target = subArea.GetTargetDescription();
-                            body.Append(TableRow(title, target));
+                            // If the sub-area targets an entity/table, link to its solution documentation
+                            if (canLinkSolutionNav && !string.IsNullOrEmpty(subArea.Entity))
+                            {
+                                string anchor = CrossDocLinkHelper.GetSolutionTableHtmlAnchor(subArea.Entity);
+                                body.Append(TableRowRaw(Encode(title), Link(target, "../" + solutionHtmlNav + anchor)));
+                            }
+                            else
+                            {
+                                body.Append(TableRow(title, target));
+                            }
                         }
                         body.AppendLine(TableEnd());
                     }
@@ -166,7 +186,16 @@ namespace PowerDocu.AppModuleDocumenter
             foreach (var comp in tables.OrderBy(c => c.SchemaName))
             {
                 string displayName = content.GetTableDisplayName(comp.SchemaName);
-                body.Append(TableRow(displayName, comp.SchemaName));
+                if (content.context?.Config?.documentSolution == true && content.context?.Solution != null)
+                {
+                    string solutionHtml = CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName);
+                    string anchor = CrossDocLinkHelper.GetSolutionTableHtmlAnchor(comp.SchemaName);
+                    body.Append(TableRowRaw(Link(displayName, "../" + solutionHtml + anchor), Encode(comp.SchemaName)));
+                }
+                else
+                {
+                    body.Append(TableRow(displayName, comp.SchemaName));
+                }
             }
             body.AppendLine(TableEnd());
         }
@@ -179,11 +208,28 @@ namespace PowerDocu.AppModuleDocumenter
             body.AppendLine(HeadingWithId(2, content.headerViews, "views"));
             body.AppendLine(Paragraph($"This app includes {views.Count} view(s)."));
 
+            bool canLinkSolution = content.context?.Config?.documentSolution == true && content.context?.Solution != null;
+            string solutionHtml = canLinkSolution ? CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName) : null;
+
             body.Append(TableStart("Table", "View", "Query Type", "ID"));
             var viewDetails = views.Select(comp => (comp, details: content.GetViewDetails(comp.ID)))
                 .OrderBy(v => v.details.TableName).ThenBy(v => v.details.ViewName);
             foreach (var (comp, details) in viewDetails)
             {
+                if (canLinkSolution && !string.IsNullOrEmpty(details.TableName))
+                {
+                    // Find the table schema name to build the anchor
+                    var tableEntity = content.allTables.FirstOrDefault(t =>
+                        (t.getLocalizedName() ?? t.getName()).Equals(details.TableName, System.StringComparison.OrdinalIgnoreCase));
+                    if (tableEntity != null)
+                    {
+                        string anchor = CrossDocLinkHelper.GetSolutionTableHtmlAnchor(tableEntity.getName());
+                        body.Append(TableRowRaw(
+                            Link(details.TableName, "../" + solutionHtml + anchor),
+                            Encode(details.ViewName), Encode(details.QueryType), Encode(comp.ID)));
+                        continue;
+                    }
+                }
                 body.Append(TableRow(details.TableName, details.ViewName, details.QueryType, comp.ID));
             }
             body.AppendLine(TableEnd());
@@ -203,16 +249,14 @@ namespace PowerDocu.AppModuleDocumenter
                 string displayName = content.GetCustomPageDisplayName(page);
                 AppEntity app = content.GetCanvasAppForPage(page);
                 string canvasAppCell;
-                if (app != null)
+                if (app != null && content.context?.Config?.documentApps == true)
                 {
-                    string safeFilename = CharsetHelper.GetSafeName(app.Name);
-                    string indexFile = ("index-" + safeFilename + ".html").Replace(" ", "-");
-                    string href = content.GetCanvasAppDocRelativePath(app, indexFile);
+                    string href = "../" + CrossDocLinkHelper.GetAppDocHtmlPath(app.Name);
                     canvasAppCell = Link(app.Name, href);
                 }
                 else
                 {
-                    canvasAppCell = Encode(page.CanvasAppName);
+                    canvasAppCell = Encode(app?.Name ?? page.CanvasAppName);
                 }
                 body.Append(TableRowRaw(Encode(displayName), Encode(page.UniqueName), canvasAppCell));
             }

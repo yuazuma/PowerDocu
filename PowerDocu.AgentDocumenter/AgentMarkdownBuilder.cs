@@ -416,10 +416,22 @@ namespace PowerDocu.AgentDocumenter
                 if (tables.Count > 0)
                 {
                     doc.Root.Add(new MdHeading("Selected Tables", 3));
+                    bool canLinkSolutionKnowledge = content.context?.Config?.documentSolution == true && content.context?.Solution != null;
+                    string solutionMdKnowledge = canLinkSolutionKnowledge ? CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName) : null;
                     List<MdTableRow> tableRows = new List<MdTableRow>();
                     foreach (var table in tables.OrderBy(t => t.Name))
                     {
-                        tableRows.Add(new MdTableRow(table.Name, table.EntityLogicalName));
+                        MdSpan nameCell;
+                        if (canLinkSolutionKnowledge)
+                        {
+                            string anchor = CrossDocLinkHelper.GetSolutionTableMdAnchor(table.Name, table.EntityLogicalName);
+                            nameCell = new MdLinkSpan(table.Name, "../../" + solutionMdKnowledge + anchor);
+                        }
+                        else
+                        {
+                            nameCell = new MdTextSpan(table.Name);
+                        }
+                        tableRows.Add(new MdTableRow(nameCell, new MdTextSpan(table.EntityLogicalName)));
                     }
                     doc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Table Name", "Logical Name" }), tableRows));
 
@@ -593,9 +605,45 @@ namespace PowerDocu.AgentDocumenter
                 if (!string.IsNullOrEmpty(tool.OperationId))
                     detailRows.Add(new MdTableRow("Operation", tool.OperationId));
                 if (!string.IsNullOrEmpty(tool.FlowId))
-                    detailRows.Add(new MdTableRow("Flow ID", tool.FlowId));
+                {
+                    if (content.context?.Config?.documentFlows == true)
+                    {
+                        FlowEntity flow = content.context.GetFlowById(tool.FlowId);
+                        if (flow != null)
+                        {
+                            string href = "../" + CrossDocLinkHelper.GetFlowDocMdPath(flow.Name);
+                            detailRows.Add(new MdTableRow(new MdTextSpan("Flow ID"), new MdLinkSpan(tool.FlowId, href)));
+                        }
+                        else
+                        {
+                            detailRows.Add(new MdTableRow("Flow ID", tool.FlowId));
+                        }
+                    }
+                    else
+                    {
+                        detailRows.Add(new MdTableRow("Flow ID", tool.FlowId));
+                    }
+                }
                 if (!string.IsNullOrEmpty(tool.AgentFlowName))
-                    detailRows.Add(new MdTableRow("Agent Flow", tool.AgentFlowName));
+                {
+                    if (content.context?.Config?.documentFlows == true)
+                    {
+                        FlowEntity flow = content.context.GetFlowById(tool.FlowId);
+                        if (flow != null)
+                        {
+                            string href = "../" + CrossDocLinkHelper.GetFlowDocMdPath(flow.Name);
+                            detailRows.Add(new MdTableRow(new MdTextSpan("Agent Flow"), new MdLinkSpan(tool.AgentFlowName, href)));
+                        }
+                        else
+                        {
+                            detailRows.Add(new MdTableRow("Agent Flow", tool.AgentFlowName));
+                        }
+                    }
+                    else
+                    {
+                        detailRows.Add(new MdTableRow("Agent Flow", tool.AgentFlowName));
+                    }
+                }
                 if (!string.IsNullOrEmpty(tool.ModelParameters))
                     detailRows.Add(new MdTableRow("Model Parameters", tool.ModelParameters));
                 toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), detailRows));

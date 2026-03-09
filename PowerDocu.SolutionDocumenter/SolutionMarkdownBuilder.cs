@@ -230,12 +230,14 @@ namespace PowerDocu.SolutionDocumenter
                     default:
                         solutionDoc.Root.Add(new MdHeading(section.ComponentType, 3));
                         List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == section.ComponentType).ToList();
-                        var sortedNames = components.Select(c => content.GetDisplayNameForComponent(c)).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+                        var sortedComponents = components
+                            .Select(c => (comp: c, displayName: content.GetDisplayNameForComponent(c)))
+                            .OrderBy(x => x.displayName, StringComparer.OrdinalIgnoreCase).ToList();
                         List<MdTableRow> componentTableRows = new List<MdTableRow>();
-                        foreach (string compName in sortedNames)
+                        foreach (var (comp, compName) in sortedComponents)
                         {
-                            //todo add link to documentation
-                            componentTableRows.Add(new MdTableRow(new MdTextSpan(compName)));
+                            MdSpan cell = GetCrossDocLinkMdForComponent(comp, compName);
+                            componentTableRows.Add(new MdTableRow(cell));
                         }
                         if (componentTableRows.Count > 0)
                         {
@@ -576,6 +578,44 @@ namespace PowerDocu.SolutionDocumenter
                 _ => AccessLevel.None
             };
             return getAccessLevelIcon(level);
+        }
+
+        private MdSpan GetCrossDocLinkMdForComponent(SolutionComponent component, string displayName)
+        {
+            string mdPath = null;
+            switch (component.Type)
+            {
+                case "Workflow":
+                    if (content.context?.Config?.documentFlows == true)
+                    {
+                        FlowEntity flow = content.context.GetFlowById(component.ID);
+                        if (flow != null)
+                            mdPath = CrossDocLinkHelper.GetFlowDocMdPath(flow.Name);
+                    }
+                    break;
+                case "Canvas App":
+                    if (content.context?.Config?.documentApps == true)
+                    {
+                        string appName = content.context.GetAppNameBySchemaName(component.SchemaName);
+                        AppEntity app = content.context.GetAppByName(appName);
+                        if (app != null)
+                            mdPath = CrossDocLinkHelper.GetAppDocMdPath(app.Name);
+                    }
+                    break;
+                case "Model-Driven App":
+                    if (content.context?.Config?.documentModelDrivenApps == true)
+                    {
+                        AppModuleEntity mda = content.appModules?.FirstOrDefault(a =>
+                            a.UniqueName?.Equals(component.SchemaName, StringComparison.OrdinalIgnoreCase) == true);
+                        if (mda != null)
+                            mdPath = CrossDocLinkHelper.GetMDADocMdPath(mda.GetDisplayName());
+                    }
+                    break;
+            }
+
+            if (mdPath != null)
+                return new MdLinkSpan(displayName, mdPath);
+            return new MdTextSpan(displayName);
         }
 
         private void createOrderFile()

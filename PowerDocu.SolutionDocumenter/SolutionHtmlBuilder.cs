@@ -321,12 +321,15 @@ namespace PowerDocu.SolutionDocumenter
                         List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == section.ComponentType).ToList();
                         if (components.Count > 0)
                         {
-                            var sortedNames = components.Select(c => content.GetDisplayNameForComponent(c)).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+                            var sortedComponents = components
+                                .Select(c => (comp: c, displayName: content.GetDisplayNameForComponent(c)))
+                                .OrderBy(x => x.displayName, StringComparer.OrdinalIgnoreCase).ToList();
                             body.Append(TableStart(section.ComponentType));
-                            foreach (string compName in sortedNames)
+                            foreach (var (comp, compName) in sortedComponents)
                             {
                                 string anchorId = SanitizeAnchorId("comp-" + compName);
-                                body.Append($"<tr id=\"{Encode(anchorId)}\"><td>{Encode(compName)}</td></tr>");
+                                string cellContent = GetCrossDocLinkHtmlForComponent(comp, compName);
+                                body.Append($"<tr id=\"{Encode(anchorId)}\"><td>{cellContent}</td></tr>");
                             }
                             body.AppendLine(TableEnd());
                         }
@@ -377,6 +380,45 @@ namespace PowerDocu.SolutionDocumenter
             {
                 body.AppendLine(Paragraph("This solution has no dependencies."));
             }
+        }
+
+        /// <summary>
+        /// Returns an HTML link to the cross-document documentation for a solution component,
+        /// or plain encoded text if the target documentation is not being generated.
+        /// Solution is at root level, so paths go directly into subfolders (no ../ needed).
+        /// </summary>
+        private string GetCrossDocLinkHtmlForComponent(SolutionComponent component, string displayName)
+        {
+            switch (component.Type)
+            {
+                case "Workflow":
+                    if (content.context?.Config?.documentFlows == true)
+                    {
+                        FlowEntity flow = content.context.GetFlowById(component.ID);
+                        if (flow != null)
+                            return Link(displayName, CrossDocLinkHelper.GetFlowDocHtmlPath(flow.Name));
+                    }
+                    break;
+                case "Canvas App":
+                    if (content.context?.Config?.documentApps == true)
+                    {
+                        string appName = content.context.GetAppNameBySchemaName(component.SchemaName);
+                        AppEntity app = content.context.GetAppByName(appName);
+                        if (app != null)
+                            return Link(displayName, CrossDocLinkHelper.GetAppDocHtmlPath(app.Name));
+                    }
+                    break;
+                case "Model-Driven App":
+                    if (content.context?.Config?.documentModelDrivenApps == true)
+                    {
+                        AppModuleEntity mda = content.appModules?.FirstOrDefault(a =>
+                            a.UniqueName?.Equals(component.SchemaName, StringComparison.OrdinalIgnoreCase) == true);
+                        if (mda != null)
+                            return Link(displayName, CrossDocLinkHelper.GetMDADocHtmlPath(mda.GetDisplayName()));
+                    }
+                    break;
+            }
+            return Encode(displayName);
         }
 
         private void renderOptionSets(StringBuilder body)

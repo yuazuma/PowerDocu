@@ -515,6 +515,17 @@ namespace PowerDocu.AppDocumenter
                             }
                             dataSourceDocument.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tdRows));
 
+                            // Cross-doc link to solution table documentation
+                            if (content.context?.Config?.documentSolution == true && content.context?.Solution != null
+                                && !string.IsNullOrEmpty(tdInfo.LogicalName))
+                            {
+                                string displayName = tdInfo.DisplayName ?? tdInfo.LogicalName;
+                                string solutionMd = CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName);
+                                string anchor = CrossDocLinkHelper.GetSolutionTableMdAnchor(displayName, tdInfo.LogicalName);
+                                dataSourceDocument.Root.Add(new MdParagraph(
+                                    new MdCompositeSpan(new MdTextSpan("See "),
+                                        new MdLinkSpan("full table documentation in the solution", "../" + solutionMd + anchor))));
+                            }
                         }
                     }
                 }

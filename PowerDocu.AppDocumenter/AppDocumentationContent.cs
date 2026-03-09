@@ -11,6 +11,7 @@ namespace PowerDocu.AppDocumenter
             filename;
         public string ID;
         public string Name;
+        public DocumentationContext context;
         public AppProperties appProperties;
         public AppResources appResources;
         public AppDataSources appDataSources;
@@ -40,9 +41,10 @@ namespace PowerDocu.AppDocumenter
             "SelectionFill"
         };
 
-        public AppDocumentationContent(AppEntity app, string path)
+        public AppDocumentationContent(AppEntity app, string path, DocumentationContext context = null)
         {
             NotificationHelper.SendNotification("Preparing documentation content for " + app.Name);
+            this.context = context;
             folderPath = path + CharsetHelper.GetSafeName(@"\AppDoc " + app.Name + @"\");
             Directory.CreateDirectory(folderPath);
             filename = CharsetHelper.GetSafeName(app.Name);
