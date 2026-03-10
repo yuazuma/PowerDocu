@@ -94,7 +94,29 @@ namespace PowerDocu.AgentDocumenter
                 foreach (BotComponent ks in knowledgeSources)
                 {
                     string details = content.agent.GetKnowledgeDetailsSummary(ks);
-                    knowledgeTable.Append(CreateRow(new Text(ks.Name), new Text(ks.GetSourceKindDisplayName()), new Text(details)));
+                    string site = ks.GetKnowledgeSourceSite();
+                    OpenXmlElement detailsCell;
+                    if (!string.IsNullOrEmpty(site))
+                    {
+                        try
+                        {
+                            var rel = mainPart.AddHyperlinkRelationship(new Uri(site), true);
+                            detailsCell = new Hyperlink(
+                                new Run(
+                                    new RunProperties(new DocumentFormat.OpenXml.Wordprocessing.Color { Val = "0563C1", ThemeColor = ThemeColorValues.Hyperlink }),
+                                    new Text(details)))
+                            { History = OnOffValue.FromBoolean(true), Id = rel.Id };
+                        }
+                        catch (UriFormatException)
+                        {
+                            detailsCell = new Text(details);
+                        }
+                    }
+                    else
+                    {
+                        detailsCell = new Text(details);
+                    }
+                    knowledgeTable.Append(CreateRow(new Text(ks.Name), new Text(ks.GetSourceKindDisplayName()), detailsCell));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
@@ -183,7 +205,29 @@ namespace PowerDocu.AgentDocumenter
             {
                 string details = content.agent.GetKnowledgeDetailsSummary(ks);
                 string officialSource = ks.GetOfficialSourceDisplayName();
-                overviewTable.Append(CreateRow(new Text(ks.Name), new Text(ks.GetSourceKindDisplayName()), new Text(officialSource), new Text(details)));
+                string site = ks.GetKnowledgeSourceSite();
+                OpenXmlElement detailsCell;
+                if (!string.IsNullOrEmpty(site))
+                {
+                    try
+                    {
+                        var rel = mainPart.AddHyperlinkRelationship(new Uri(site), true);
+                        detailsCell = new Hyperlink(
+                            new Run(
+                                new RunProperties(new DocumentFormat.OpenXml.Wordprocessing.Color { Val = "0563C1", ThemeColor = ThemeColorValues.Hyperlink }),
+                                new Text(details)))
+                        { History = OnOffValue.FromBoolean(true), Id = rel.Id };
+                    }
+                    catch (UriFormatException)
+                    {
+                        detailsCell = new Text(details);
+                    }
+                }
+                else
+                {
+                    detailsCell = new Text(details);
+                }
+                overviewTable.Append(CreateRow(new Text(ks.Name), new Text(ks.GetSourceKindDisplayName()), new Text(officialSource), detailsCell));
             }
             foreach (BotComponent fk in fileKnowledge.OrderBy(k => k.Name))
             {
@@ -219,7 +263,22 @@ namespace PowerDocu.AgentDocumenter
                     table.Append(CreateRow(new Text("Official Source"), new Text(officialSource)));
                 string site = knowledge.GetKnowledgeSourceSite();
                 if (!string.IsNullOrEmpty(site))
-                    table.Append(CreateRow(new Text("URL"), new Text(site)));
+                {
+                    try
+                    {
+                        var rel = mainPart.AddHyperlinkRelationship(new Uri(site), true);
+                        var hyperlink = new Hyperlink(
+                            new Run(
+                                new RunProperties(new DocumentFormat.OpenXml.Wordprocessing.Color { Val = "0563C1", ThemeColor = ThemeColorValues.Hyperlink }),
+                                new Text(site)))
+                        { History = OnOffValue.FromBoolean(true), Id = rel.Id };
+                        table.Append(CreateRow(new Text("URL"), hyperlink));
+                    }
+                    catch (UriFormatException)
+                    {
+                        table.Append(CreateRow(new Text("URL"), new Text(site)));
+                    }
+                }
             }
             else if (knowledge.ComponentType == 14)
             {

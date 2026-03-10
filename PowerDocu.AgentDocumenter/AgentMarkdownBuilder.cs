@@ -207,7 +207,9 @@ namespace PowerDocu.AgentDocumenter
                     string key = CharsetHelper.GetSafeName(ks.Name);
                     string detailLink = "Knowledge/" + ("knowledge " + key + " " + content.filename + ".md").Replace(" ", "-");
                     string details = content.agent.GetKnowledgeDetailsSummary(ks);
-                    ksRows.Add(new MdTableRow(new MdLinkSpan(ks.Name, detailLink), ks.GetSourceKindDisplayName(), details));
+                    string site = ks.GetKnowledgeSourceSite();
+                    MdSpan detailsCell = !string.IsNullOrEmpty(site) ? new MdLinkSpan(details, site) : (MdSpan)new MdTextSpan(details);
+                    ksRows.Add(new MdTableRow(new MdLinkSpan(ks.Name, detailLink), ks.GetSourceKindDisplayName(), detailsCell));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
@@ -343,7 +345,9 @@ namespace PowerDocu.AgentDocumenter
                     string descriptionPreview = !string.IsNullOrEmpty(ks.Description) && ks.Description.Length > 100
                         ? ks.Description.Substring(0, 100) + "..."
                         : ks.Description ?? "";
-                    ksRows.Add(new MdTableRow(new MdLinkSpan(ks.Name, detailLink), ks.GetSourceKindDisplayName(), officialSource, details, descriptionPreview));
+                    string site = ks.GetKnowledgeSourceSite();
+                    MdSpan detailsCell = !string.IsNullOrEmpty(site) ? new MdLinkSpan(details, site) : (MdSpan)new MdTextSpan(details);
+                    ksRows.Add(new MdTableRow(new MdLinkSpan(ks.Name, detailLink), ks.GetSourceKindDisplayName(), officialSource, detailsCell, descriptionPreview));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
@@ -391,7 +395,7 @@ namespace PowerDocu.AgentDocumenter
                     propRows.Add(new MdTableRow("Official Source", officialSource));
                 string site = knowledge.GetKnowledgeSourceSite();
                 if (!string.IsNullOrEmpty(site))
-                    propRows.Add(new MdTableRow("URL", site));
+                    propRows.Add(new MdTableRow("URL", new MdLinkSpan(site, site)));
             }
             else if (knowledge.ComponentType == 14)
             {
@@ -551,7 +555,7 @@ namespace PowerDocu.AgentDocumenter
             if (File.Exists(Path.Combine(content.folderPath, "Topics", graphFile)))
             {
                 topicDoc.Root.Add(new MdHeading("Topic Flow", 3));
-                topicDoc.Root.Add(new MdParagraph(new MdImageSpan("Topic Flow Diagram", graphFile)));
+                topicDoc.Root.Add(new MdParagraph(new MdRawMarkdownSpan($"[![Topic Flow Diagram]({graphFile})]({graphFile})")));
             }
         }
 

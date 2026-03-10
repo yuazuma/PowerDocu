@@ -52,7 +52,7 @@ namespace PowerDocu.AgentDocumenter
                 Directory.CreateDirectory(topicsFolderPath);
                 foreach (BotComponent topic in agent.GetTopics())
                 {
-                    GraphBuilder graphBuilder = new GraphBuilder(agent.Name, topic, topicsFolderPath);
+                    GraphBuilder graphBuilder = new GraphBuilder(agent.Name, topic, topicsFolderPath, context);
                     graphBuilder.buildDetailedGraph();
                 }
 

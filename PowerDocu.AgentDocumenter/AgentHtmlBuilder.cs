@@ -119,7 +119,9 @@ namespace PowerDocu.AgentDocumenter
                 {
                     string detailFile = knowledgeDetailFileNames.GetValueOrDefault(ks.Name, "#");
                     string details = content.agent.GetKnowledgeDetailsSummary(ks);
-                    body.Append(TableRowRaw(Link(ks.Name, "Knowledge/" + detailFile), Encode(ks.GetSourceKindDisplayName()), Encode(details)));
+                    string site = ks.GetKnowledgeSourceSite();
+                    string detailsCell = !string.IsNullOrEmpty(site) ? Link(details, site) : Encode(details);
+                    body.Append(TableRowRaw(Link(ks.Name, "Knowledge/" + detailFile), Encode(ks.GetSourceKindDisplayName()), detailsCell));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
@@ -215,11 +217,13 @@ namespace PowerDocu.AgentDocumenter
                     string descriptionPreview = !string.IsNullOrEmpty(ks.Description) && ks.Description.Length > 100
                         ? ks.Description.Substring(0, 100) + "..."
                         : ks.Description ?? "";
+                    string site = ks.GetKnowledgeSourceSite();
+                    string detailsCell = !string.IsNullOrEmpty(site) ? Link(details, site) : Encode(details);
                     body.Append(TableRowRaw(
                         Link(ks.Name, "Knowledge/" + detailFile),
                         Encode(ks.GetSourceKindDisplayName()),
                         Encode(officialSource),
-                        Encode(details),
+                        detailsCell,
                         Encode(descriptionPreview)));
                 }
                 foreach (BotComponent fk in fileKnowledge)
@@ -276,7 +280,7 @@ namespace PowerDocu.AgentDocumenter
                     body.Append(TableRow("Official Source", officialSource));
                 string site = knowledge.GetKnowledgeSourceSite();
                 if (!string.IsNullOrEmpty(site))
-                    body.Append(TableRow("URL", site));
+                    body.Append(TableRowRaw("URL", Link(site, site)));
             }
             else if (knowledge.ComponentType == 14)
             {
@@ -678,7 +682,7 @@ namespace PowerDocu.AgentDocumenter
             if (File.Exists(Path.Combine(content.folderPath, "Topics", graphFile)))
             {
                 topicBody.AppendLine(Heading(3, "Topic Flow"));
-                topicBody.AppendLine(ParagraphRaw(Image("Topic Flow Diagram", graphFile)));
+                topicBody.AppendLine(ParagraphRaw($"<a href=\"{Encode(graphFile)}\" target=\"_blank\">{Image("Topic Flow Diagram", graphFile)}</a>"));
             }
 
             Directory.CreateDirectory(Path.Combine(content.folderPath, "Topics"));
