@@ -79,6 +79,15 @@ namespace PowerDocu.AppDocumenter
 
         private MdBulletList getNavigationLinks(bool topLevel = true)
         {
+            var navItemsList = new List<MdListItem>();
+            if (content.context?.Solution != null)
+            {
+                string solutionPrefix = topLevel ? "../" : "../../";
+                if (content.context?.Config?.documentSolution == true)
+                    navItemsList.Add(new MdListItem(new MdLinkSpan("Solution", solutionPrefix + CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName))));
+                else
+                    navItemsList.Add(new MdListItem(content.context.Solution.UniqueName));
+            }
             MdListItem[] navItems = new MdListItem[] {
                 new MdListItem(new MdLinkSpan("Overview", topLevel ? mainDocumentFileName : "../" + mainDocumentFileName)),
                 new MdListItem(new MdLinkSpan("App Details", topLevel ? appDetailsFileName : "../" + appDetailsFileName)),
@@ -87,7 +96,8 @@ namespace PowerDocu.AppDocumenter
                 new MdListItem(new MdLinkSpan("Resources", topLevel ? resourcesFileName : "../" + resourcesFileName)),
                 new MdListItem(new MdLinkSpan("Controls", topLevel ? controlsFileName : "../" + controlsFileName)),
                 };
-            return new MdBulletList(navItems);
+            navItemsList.AddRange(navItems);
+            return new MdBulletList(navItemsList);
         }
 
         private void addAppMetadata()

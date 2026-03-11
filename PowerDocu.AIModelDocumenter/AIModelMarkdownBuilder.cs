@@ -32,6 +32,15 @@ namespace PowerDocu.AIModelDocumenter
         private void addOverview()
         {
             mainDocument.Root.Add(new MdHeading(content.aiModel.getName(), 1));
+
+            if (content.context?.Solution != null)
+            {
+                if (content.context?.Config?.documentSolution == true)
+                    mainDocument.Root.Add(new MdParagraph(new MdCompositeSpan(new MdTextSpan("Solution: "), new MdLinkSpan(content.context.Solution.UniqueName, "../" + CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName)))));
+                else
+                    mainDocument.Root.Add(new MdParagraph(new MdTextSpan("Solution: " + content.context.Solution.UniqueName)));
+            }
+
             List<MdTableRow> tableRows = new List<MdTableRow>
             {
                 new MdTableRow("Name", content.aiModel.getName()),

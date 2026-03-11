@@ -55,6 +55,10 @@ namespace PowerDocu.AppDocumenter
             body.AppendChild(new Paragraph(new Run()));
             Table table = CreateTable();
             table.Append(CreateRow(new Text("App Name"), new Text(content.Name)));
+            if (content.context?.Solution != null)
+            {
+                table.Append(CreateRow(new Text("Solution"), new Text(content.context.Solution.UniqueName)));
+            }
             //if there is a custom logo we add it to the documentation as well. Icon based logos currently not supported
             if (!String.IsNullOrEmpty(content.appProperties.appLogo))
             {

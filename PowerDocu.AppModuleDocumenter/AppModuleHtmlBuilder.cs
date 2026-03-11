@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -24,7 +25,15 @@ namespace PowerDocu.AppModuleDocumenter
 
         private string getNavigationHtml()
         {
-            var navItems = new (string label, string href)[]
+            var navItemsList = new List<(string label, string href)>();
+            if (content.context?.Solution != null)
+            {
+                if (content.context?.Config?.documentSolution == true)
+                    navItemsList.Add(("Solution", "../" + CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName)));
+                else
+                    navItemsList.Add((content.context.Solution.UniqueName, ""));
+            }
+            navItemsList.AddRange(new (string label, string href)[]
             {
                 ("Overview", "#overview"),
                 ("Security Roles", "#security-roles"),
@@ -33,10 +42,10 @@ namespace PowerDocu.AppModuleDocumenter
                 ("Views", "#views"),
                 ("Custom Pages", "#custom-pages"),
                 ("App Settings", "#app-settings")
-            };
+            });
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"<div class=\"nav-title\">{Encode(content.appModule.GetDisplayName())}</div>");
-            sb.Append(NavigationList(navItems));
+            sb.Append(NavigationList(navItemsList));
             return sb.ToString();
         }
 

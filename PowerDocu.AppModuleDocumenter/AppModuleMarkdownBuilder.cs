@@ -38,6 +38,14 @@ namespace PowerDocu.AppModuleDocumenter
         {
             mainDocument.Root.Add(new MdHeading(content.appModule.GetDisplayName(), 1));
 
+            if (content.context?.Solution != null)
+            {
+                if (content.context?.Config?.documentSolution == true)
+                    mainDocument.Root.Add(new MdParagraph(new MdCompositeSpan(new MdTextSpan("Solution: "), new MdLinkSpan(content.context.Solution.UniqueName, "../" + CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName)))));
+                else
+                    mainDocument.Root.Add(new MdParagraph(new MdTextSpan("Solution: " + content.context.Solution.UniqueName)));
+            }
+
             List<MdTableRow> tableRows = new List<MdTableRow>
             {
                 new MdTableRow("Unique Name", content.appModule.UniqueName),

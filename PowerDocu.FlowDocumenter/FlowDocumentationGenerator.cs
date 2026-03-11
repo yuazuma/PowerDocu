@@ -53,7 +53,7 @@ namespace PowerDocu.FlowDocumenter
                             "By name" => FlowActionSortOrder.SortByName,
                             _ => FlowActionSortOrder.SortByName
                         };
-                        FlowDocumentationContent content = new FlowDocumentationContent(flow, path, sortOrder);
+                        FlowDocumentationContent content = new FlowDocumentationContent(flow, path, sortOrder, context);
                         string wordTemplate = (!String.IsNullOrEmpty(context.Config.wordTemplate) && File.Exists(context.Config.wordTemplate))
                             ? context.Config.wordTemplate : null;
                         if (context.Config.outputFormat.Equals(OutputFormatHelper.Word) || context.Config.outputFormat.Equals(OutputFormatHelper.All))

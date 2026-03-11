@@ -303,6 +303,15 @@ namespace PowerDocu.AgentDocumenter
 
         private MdBulletList getNavigationLinks(bool topLevel = true)
         {
+            var navItemsList = new List<MdListItem>();
+            if (content.context?.Solution != null)
+            {
+                string solutionPrefix = topLevel ? "../" : "../../";
+                if (content.context?.Config?.documentSolution == true)
+                    navItemsList.Add(new MdListItem(new MdLinkSpan("Solution", solutionPrefix + CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName))));
+                else
+                    navItemsList.Add(new MdListItem(content.context.Solution.UniqueName));
+            }
             MdListItem[] navItems = new MdListItem[] {
                 new MdListItem(new MdLinkSpan("Overview", topLevel ? mainDocumentFileName : "../" + mainDocumentFileName)),
                 new MdListItem(new MdLinkSpan("Knowledge", topLevel ? knowledgeFileName : "../" + knowledgeFileName)),
@@ -314,7 +323,8 @@ namespace PowerDocu.AgentDocumenter
                 new MdListItem(new MdLinkSpan("Channels", topLevel ? channelsFileName : "../" + channelsFileName)),
                 new MdListItem(new MdLinkSpan("Settings", topLevel ? settingsFileName : "../" + settingsFileName))
                 };
-            return new MdBulletList(navItems);
+            navItemsList.AddRange(navItems);
+            return new MdBulletList(navItemsList);
         }
 
 

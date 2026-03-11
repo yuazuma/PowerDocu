@@ -15,12 +15,14 @@ namespace PowerDocu.FlowDocumenter
         public FlowVariables variables;
         public FlowDetails details;
         public FlowActions actions;
+        public DocumentationContext context;
 
-        public FlowDocumentationContent(FlowEntity flow, string path, FlowActionSortOrder sortOrder = FlowActionSortOrder.SortByName)
+        public FlowDocumentationContent(FlowEntity flow, string path, FlowActionSortOrder sortOrder = FlowActionSortOrder.SortByName, DocumentationContext context = null)
         {
             NotificationHelper.SendNotification("Preparing documentation content for " + flow.Name);
             folderPath = path + CharsetHelper.GetSafeName(@"\FlowDoc " + flow.Name + @"\");
             filename = CharsetHelper.GetSafeName(flow.Name);
+            this.context = context;
             metadata = new FlowMetadata(flow);
             overview = new FlowOverview();
             connectionReferences = new FlowConnectionReferences(flow);

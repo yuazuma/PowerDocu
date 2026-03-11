@@ -42,6 +42,10 @@ namespace PowerDocu.AppModuleDocumenter
 
             Table table = CreateTable();
             table.Append(CreateRow(new Text("Unique Name"), new Text(content.appModule.UniqueName)));
+            if (content.context?.Solution != null)
+            {
+                table.Append(CreateRow(new Text("Solution"), new Text(content.context.Solution.UniqueName)));
+            }
             table.Append(CreateRow(new Text("Display Name"), new Text(content.appModule.GetDisplayName())));
             table.Append(CreateRow(new Text("Description"), new Text(content.appModule.GetDescription())));
             table.Append(CreateRow(new Text("Version"), new Text(content.appModule.IntroducedVersion ?? "")));

@@ -25,13 +25,21 @@ namespace PowerDocu.AIModelDocumenter
 
         private string getNavigationHtml()
         {
-            var navItems = new List<(string label, string href, int level)>
+            var navItems = new List<(string label, string href, int level)>();
+            if (content.context?.Solution != null)
+            {
+                if (content.context?.Config?.documentSolution == true)
+                    navItems.Add(("Solution", "../" + CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName), 0));
+                else
+                    navItems.Add((content.context.Solution.UniqueName, "", 0));
+            }
+            navItems.AddRange(new (string label, string href, int level)[]
             {
                 ("Overview", "#overview", 0),
                 ("Instructions", "#instructions", 0),
                 ("Inputs", "#inputs", 0),
                 ("Model Response", "#model-response", 0)
-            };
+            });
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"<div class=\"nav-title\">{Encode(content.aiModel.getName())}</div>");
             sb.Append(NavigationList(navItems));

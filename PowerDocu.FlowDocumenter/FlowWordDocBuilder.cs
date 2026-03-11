@@ -106,6 +106,10 @@ namespace PowerDocu.FlowDocumenter
             {
                 table.Append(CreateRow(new Text(kvp.Key), new Text(kvp.Value)));
             }
+            if (content.context?.Solution != null)
+            {
+                table.Append(CreateRow(new Text("Solution"), new Text(content.context.Solution.UniqueName)));
+            }
             body.Append(table);
             body.AppendChild(new Paragraph(new Run(new Break())));
         }

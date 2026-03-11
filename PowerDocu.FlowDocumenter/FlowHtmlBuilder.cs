@@ -35,13 +35,22 @@ namespace PowerDocu.FlowDocumenter
         private string getNavigationHtml(bool fromSubfolder = false)
         {
             string prefix = fromSubfolder ? "../" : "";
-            var navItems = new List<(string label, string href)>
+            var navItems = new List<(string label, string href)>();
+            if (content.context?.Solution != null)
+            {
+                string solutionPrefix = fromSubfolder ? "../../" : "../";
+                if (content.context?.Config?.documentSolution == true)
+                    navItems.Add(("Solution", solutionPrefix + CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName)));
+                else
+                    navItems.Add((content.context.Solution.UniqueName, ""));
+            }
+            navItems.AddRange(new (string label, string href)[]
             {
                 ("Overview", prefix + mainFileName),
                 ("Connection References", prefix + connectionsFileName),
                 ("Variables", prefix + variablesFileName),
                 ("Triggers & Actions", prefix + triggerActionsFileName)
-            };
+            });
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"<div class=\"nav-title\">{Encode(content.metadata.Name)}</div>");
             sb.Append(NavigationList(navItems));

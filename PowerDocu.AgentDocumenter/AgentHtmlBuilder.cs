@@ -55,7 +55,16 @@ namespace PowerDocu.AgentDocumenter
         private string getNavigationHtml(bool isSubfolder = false)
         {
             string prefix = isSubfolder ? "../" : "";
-            var navItems = new List<(string label, string href)>
+            var navItems = new List<(string label, string href)>();
+            if (content.context?.Solution != null)
+            {
+                string solutionPrefix = isSubfolder ? "../../" : "../";
+                if (content.context?.Config?.documentSolution == true)
+                    navItems.Add(("Solution", solutionPrefix + CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName)));
+                else
+                    navItems.Add((content.context.Solution.UniqueName, ""));
+            }
+            navItems.AddRange(new (string label, string href)[]
             {
                 ("Overview", prefix + mainFileName),
                 ("Knowledge", prefix + knowledgeFileName),
@@ -66,7 +75,7 @@ namespace PowerDocu.AgentDocumenter
                 ("Topics", prefix + topicsFileName),
                 ("Channels", prefix + channelsFileName),
                 ("Settings", prefix + settingsFileName)
-            };
+            });
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"<div class=\"nav-title\">{Encode(content.filename)}</div>");
             sb.Append(NavigationList(navItems));

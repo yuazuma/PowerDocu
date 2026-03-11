@@ -58,7 +58,15 @@ namespace PowerDocu.AppDocumenter
 
         private string getNavigationHtml()
         {
-            var navItems = new List<(string label, string href)>
+            var navItems = new List<(string label, string href)>();
+            if (content.context?.Solution != null)
+            {
+                if (content.context?.Config?.documentSolution == true)
+                    navItems.Add(("Solution", "../" + CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName)));
+                else
+                    navItems.Add((content.context.Solution.UniqueName, ""));
+            }
+            navItems.AddRange(new (string label, string href)[]
             {
                 ("Overview", mainFileName),
                 ("App Details", appDetailsFileName),
@@ -66,7 +74,7 @@ namespace PowerDocu.AppDocumenter
                 ("DataSources", dataSourcesFileName),
                 ("Resources", resourcesFileName),
                 ("Controls", controlsFileName)
-            };
+            });
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"<div class=\"nav-title\">{Encode(content.Name)}</div>");
             sb.Append(NavigationList(navItems));

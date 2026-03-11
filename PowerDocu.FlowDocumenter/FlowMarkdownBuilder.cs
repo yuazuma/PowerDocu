@@ -44,13 +44,23 @@ namespace PowerDocu.FlowDocumenter
 
         private MdBulletList getNavigationLinks(bool topLevel = true)
         {
+            var navItemsList = new List<MdListItem>();
+            if (content.context?.Solution != null)
+            {
+                string solutionPrefix = topLevel ? "../" : "../../";
+                if (content.context?.Config?.documentSolution == true)
+                    navItemsList.Add(new MdListItem(new MdLinkSpan("Solution", solutionPrefix + CrossDocLinkHelper.GetSolutionDocMdPath(content.context.Solution.UniqueName))));
+                else
+                    navItemsList.Add(new MdListItem(content.context.Solution.UniqueName));
+            }
             MdListItem[] navItems = new MdListItem[] {
                 new MdListItem(new MdLinkSpan("Overview", topLevel ? mainDocumentFileName : "../" + mainDocumentFileName)),
                 new MdListItem(new MdLinkSpan("Connection References",topLevel ? connectionsDocumentFileName : "../" + connectionsDocumentFileName)),
                 new MdListItem(new MdLinkSpan("Variables", topLevel ? variablesDocumentFileName : "../" + variablesDocumentFileName)),
                 new MdListItem(new MdLinkSpan("Triggers & Actions", topLevel ? triggerActionsFileName : "../" + triggerActionsFileName))
                 };
-            return new MdBulletList(navItems);
+            navItemsList.AddRange(navItems);
+            return new MdBulletList(navItemsList);
         }
 
         private void addFlowMetadata()

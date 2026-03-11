@@ -39,6 +39,10 @@ namespace PowerDocu.AIModelDocumenter
 
             Table table = CreateTable();
             table.Append(CreateRow(new Text("Name"), new Text(content.aiModel.getName())));
+            if (content.context?.Solution != null)
+            {
+                table.Append(CreateRow(new Text("Solution"), new Text(content.context.Solution.UniqueName)));
+            }
             table.Append(CreateRow(new Text("ID"), new Text(content.aiModel.getID())));
             table.Append(CreateRow(new Text("Template ID"), new Text(content.aiModel.getTemplateId())));
             table.Append(CreateRow(new Text("Documentation generated at"),

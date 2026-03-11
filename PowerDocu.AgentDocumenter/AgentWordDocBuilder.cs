@@ -42,6 +42,10 @@ namespace PowerDocu.AgentDocumenter
 
             Table table = CreateTable();
             table.Append(CreateRow(new Text("Agent Name"), new Text(content.agent.Name)));
+            if (content.context?.Solution != null)
+            {
+                table.Append(CreateRow(new Text("Solution"), new Text(content.context.Solution.UniqueName)));
+            }
             if (!String.IsNullOrEmpty(content.agent.IconBase64))
             {
                 try
