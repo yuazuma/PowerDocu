@@ -364,6 +364,52 @@ namespace PowerDocu.AgentDocumenter
         {
             AddHeading(content.Topics, "Heading1");
 
+            // Topic Data Flow diagram
+            string dataFlowPng = Path.Combine(content.folderPath, "topic-dataflow.png");
+            if (File.Exists(dataFlowPng))
+            {
+                AddHeading("Topic Data Flow", "Heading2");
+                body.AppendChild(new Paragraph(new Run(new Text("Visualization of how topics call each other via BeginDialog/ReplaceDialog, with data passed between them."))));
+
+                try
+                {
+                    ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
+                    int imageWidth, imageHeight;
+                    using (FileStream stream = new FileStream(dataFlowPng, FileMode.Open))
+                    {
+                        using (var image = Image.FromStream(stream, false, false))
+                        {
+                            imageWidth = image.Width;
+                            imageHeight = image.Height;
+                        }
+                        stream.Position = 0;
+                        imagePart.FeedData(stream);
+                    }
+                    int usedWidth = (imageWidth > 600) ? 600 : imageWidth;
+                    Drawing drawing = InsertImage(mainPart.GetIdOfPart(imagePart), usedWidth, (int)(usedWidth * imageHeight / imageWidth));
+                    body.AppendChild(new Paragraph(new Run(drawing)));
+                }
+                catch { }
+                body.AppendChild(new Paragraph(new Run(new Break())));
+                body.AppendChild(new Paragraph(new Run(new Break())));
+
+                // Summary table
+                var calls = content.GetTopicDataFlowInfo();
+                if (calls.Count > 0)
+                {
+                    Table callTable = CreateTable();
+                    callTable.Append(CreateHeaderRow(new Text("Source Topic"), new Text("Target Topic"), new Text("Call Type"), new Text("Data Passed")));
+                    foreach (var call in calls)
+                    {
+                        string dataPassed = call.InputBindings.Count > 0 ? string.Join(", ", call.InputBindings.Keys) : "";
+                        callTable.Append(CreateRow(new Text(call.SourceTopicName), new Text(call.TargetTopicName), new Text(call.CallKind), new Text(dataPassed)));
+                    }
+                    body.Append(callTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+            }
+
+            AddHeading("Topic List", "Heading2");
             Table table = CreateTable();
             table.Append(CreateHeaderRow(new Text("Name"), new Text("Type"), new Text("Trigger"), new Text("Kind")));
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
@@ -437,17 +483,20 @@ namespace PowerDocu.AgentDocumenter
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
 
-                // Variables
+                // Variables (with Scope column)
                 var variables = topic.GetTopicVariables();
                 if (variables.Count > 0)
                 {
                     AddHeading("Variables", "Heading3");
 
                     Table varTable = CreateTable();
-                    varTable.Append(CreateHeaderRow(new Text("Variable"), new Text("Context")));
+                    varTable.Append(CreateHeaderRow(new Text("Variable"), new Text("Scope"), new Text("Context")));
                     foreach (var (variable, context) in variables)
                     {
-                        varTable.Append(CreateRow(new Text(variable), new Text(context)));
+                        string scope = variable.StartsWith("Global.") ? "Global"
+                            : variable.StartsWith("System.") ? "System"
+                            : "Topic";
+                        varTable.Append(CreateRow(new Text(variable), new Text(scope), new Text(context)));
                     }
                     body.Append(varTable);
                     body.AppendChild(new Paragraph(new Run(new Break())));
@@ -674,6 +723,50 @@ namespace PowerDocu.AgentDocumenter
             }
             body.Append(table);
             body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Global Variable Usage Tracking
+            var usageMap = content.GetGlobalVariableUsageMap();
+            if (usageMap.Count > 0)
+            {
+                AddHeading("Global Variable Usage", "Heading2");
+                body.AppendChild(new Paragraph(new Run(new Text("Cross-reference showing which topics read or write each global variable."))));
+
+                var varMetadata = new Dictionary<string, (string AIVisibility, string DataType)>(StringComparer.OrdinalIgnoreCase);
+                foreach (BotComponent v in variables)
+                {
+                    var (_, aiVis, dt, _) = v.GetVariableDetails();
+                    varMetadata["Global." + v.Name] = (aiVis, dt);
+                }
+
+                var sortedVars = usageMap.Keys.OrderByDescending(k =>
+                {
+                    if (varMetadata.TryGetValue(k, out var meta))
+                        return meta.AIVisibility?.Contains("UseInAIContext", StringComparison.OrdinalIgnoreCase) == true
+                            || meta.AIVisibility?.Contains("Public", StringComparison.OrdinalIgnoreCase) == true ? 1 : 0;
+                    return 0;
+                }).ThenBy(k => k);
+
+                foreach (string varName in sortedVars)
+                {
+                    string header = varName;
+                    if (varMetadata.TryGetValue(varName, out var meta)
+                        && (meta.AIVisibility?.Contains("UseInAIContext", StringComparison.OrdinalIgnoreCase) == true
+                            || meta.AIVisibility?.Contains("Public", StringComparison.OrdinalIgnoreCase) == true))
+                    {
+                        header += " (Orchestrator-visible)";
+                    }
+                    AddHeading(header, "Heading3");
+
+                    Table usageTable = CreateTable();
+                    usageTable.Append(CreateHeaderRow(new Text("Topic"), new Text("Access"), new Text("Context")));
+                    foreach (var entry in usageMap[varName].OrderBy(e => e.AccessType).ThenBy(e => e.TopicName))
+                    {
+                        usageTable.Append(CreateRow(new Text(entry.TopicName), new Text(entry.AccessType.ToString()), new Text(entry.Context)));
+                    }
+                    body.Append(usageTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+            }
         }
 
         private void addAgentChannels()

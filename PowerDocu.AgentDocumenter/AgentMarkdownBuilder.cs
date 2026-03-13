@@ -496,6 +496,43 @@ namespace PowerDocu.AgentDocumenter
         private void addAgentTopics()
         {
             topicsDocument.Root.Add(new MdHeading(content.Topics, 2));
+
+            // Topic Data Flow diagram
+            string dataFlowFile = "topic-dataflow.svg";
+            if (File.Exists(Path.Combine(content.folderPath, dataFlowFile)))
+            {
+                topicsDocument.Root.Add(new MdHeading("Topic Data Flow", 3));
+                topicsDocument.Root.Add(new MdParagraph(new MdTextSpan("Visualization of how topics call each other via BeginDialog/ReplaceDialog, with data passed between them.")));
+                topicsDocument.Root.Add(new MdParagraph(new MdRawMarkdownSpan($"[![Topic Data Flow Diagram]({dataFlowFile})]({dataFlowFile})")));
+                topicsDocument.Root.Add(new MdParagraph(new MdTextSpan(" ")));
+
+                // Summary table of all topic-to-topic calls
+                var calls = content.GetTopicDataFlowInfo();
+                if (calls.Count > 0)
+                {
+                    // Build name-to-link lookup
+                    var topicLinks = new Dictionary<string, MdSpan>(StringComparer.OrdinalIgnoreCase);
+                    foreach (BotComponent t in content.agent.GetTopics())
+                    {
+                        string link = "Topics/" + ("topic " + t.getTopicFileName() + " " + content.filename + ".md").Replace(" ", "-");
+                        topicLinks[t.Name] = new MdLinkSpan(t.Name, link);
+                    }
+
+                    List<MdTableRow> callRows = new List<MdTableRow>();
+                    foreach (var call in calls)
+                    {
+                        string dataPassed = "";
+                        if (call.InputBindings.Count > 0)
+                            dataPassed = string.Join(", ", call.InputBindings.Keys);
+                        MdSpan sourceSpan = topicLinks.TryGetValue(call.SourceTopicName, out var sl) ? sl : new MdTextSpan(call.SourceTopicName);
+                        MdSpan targetSpan = topicLinks.TryGetValue(call.TargetTopicName, out var tl) ? tl : new MdTextSpan(call.TargetTopicName);
+                        callRows.Add(new MdTableRow(sourceSpan, targetSpan, new MdTextSpan(call.CallKind), new MdTextSpan(dataPassed)));
+                    }
+                    topicsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Source Topic", "Target Topic", "Call Type", "Data Passed" }), callRows));
+                }
+            }
+
+            topicsDocument.Root.Add(new MdHeading("Topic List", 3));
             List<MdTableRow> tableRows = new List<MdTableRow>();
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
@@ -579,7 +616,7 @@ namespace PowerDocu.AgentDocumenter
                     topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), ksRows));
             }
 
-            // Variables
+            // Variables (with Scope column)
             var variables = topic.GetTopicVariables();
             if (variables.Count > 0)
             {
@@ -587,9 +624,12 @@ namespace PowerDocu.AgentDocumenter
                 List<MdTableRow> varRows = new List<MdTableRow>();
                 foreach (var (variable, context) in variables)
                 {
-                    varRows.Add(new MdTableRow(variable, context));
+                    string scope = variable.StartsWith("Global.") ? "Global"
+                        : variable.StartsWith("System.") ? "System"
+                        : "Topic";
+                    varRows.Add(new MdTableRow(variable, scope, context));
                 }
-                topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Variable", "Context" }), varRows));
+                topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Variable", "Scope", "Context" }), varRows));
             }
 
             // Topic flow diagram
@@ -826,6 +866,60 @@ namespace PowerDocu.AgentDocumenter
                     variable.Description ?? ""));
             }
             variablesDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Scope", "Data Type", "AI Visibility", "External Init", "Description" }), varRows));
+
+            // Global Variable Usage Tracking
+            var usageMap = content.GetGlobalVariableUsageMap();
+            if (usageMap.Count > 0)
+            {
+                variablesDocument.Root.Add(new MdHeading("Global Variable Usage", 3));
+                variablesDocument.Root.Add(new MdParagraph(new MdTextSpan("Cross-reference showing which topics read or write each global variable.")));
+
+                // Build topic name-to-link lookup
+                var topicLinks = new Dictionary<string, MdSpan>(StringComparer.OrdinalIgnoreCase);
+                foreach (BotComponent t in content.agent.GetTopics())
+                {
+                    string link = "Topics/" + ("topic " + t.getTopicFileName() + " " + content.filename + ".md").Replace(" ", "-");
+                    topicLinks[t.Name] = new MdLinkSpan(t.Name, link);
+                }
+
+                // Build variable metadata lookup
+                var varMetadata = new Dictionary<string, (string AIVisibility, string DataType)>(StringComparer.OrdinalIgnoreCase);
+                foreach (BotComponent v in variables)
+                {
+                    var (_, aiVis, dt, _) = v.GetVariableDetails();
+                    varMetadata["Global." + v.Name] = (aiVis, dt);
+                }
+
+                // Sort: UseInAIContext / orchestrator-visible first
+                var sortedVars = usageMap.Keys.OrderByDescending(k =>
+                {
+                    if (varMetadata.TryGetValue(k, out var meta))
+                        return meta.AIVisibility?.Contains("UseInAIContext", StringComparison.OrdinalIgnoreCase) == true
+                            || meta.AIVisibility?.Contains("Public", StringComparison.OrdinalIgnoreCase) == true ? 1 : 0;
+                    return 0;
+                }).ThenBy(k => k);
+
+                foreach (string varName in sortedVars)
+                {
+                    string header = varName;
+                    if (varMetadata.TryGetValue(varName, out var meta)
+                        && (meta.AIVisibility?.Contains("UseInAIContext", StringComparison.OrdinalIgnoreCase) == true
+                            || meta.AIVisibility?.Contains("Public", StringComparison.OrdinalIgnoreCase) == true))
+                    {
+                        header += " (Orchestrator-visible)";
+                    }
+                    variablesDocument.Root.Add(new MdHeading(header, 4));
+
+                    List<MdTableRow> usageRows = new List<MdTableRow>();
+                    // Write entries first, then Read
+                    foreach (var entry in usageMap[varName].OrderBy(e => e.AccessType).ThenBy(e => e.TopicName))
+                    {
+                        MdSpan topicSpan = topicLinks.TryGetValue(entry.TopicName, out var tl) ? tl : new MdTextSpan(entry.TopicName);
+                        usageRows.Add(new MdTableRow(topicSpan, new MdTextSpan(entry.AccessType.ToString()), new MdTextSpan(entry.Context)));
+                    }
+                    variablesDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Topic", "Access", "Context" }), usageRows));
+                }
+            }
         }
 
         private void addAgentAgentsInfo()

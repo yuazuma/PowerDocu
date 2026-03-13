@@ -1618,6 +1618,162 @@ namespace PowerDocu.AgentDocumenter
                 rankGroup.AddExisting(node);
             }
         }
+
+        /// <summary>
+        /// Generates an agent-level topic data flow diagram showing how topics call each other
+        /// (BeginDialog/ReplaceDialog) with inputType/outputType schemas on each node.
+        /// </summary>
+        internal static void BuildTopicDataFlowGraph(AgentEntity agent, AgentDocumentationContent content, string folderPath)
+        {
+            var topics = agent.GetTopics();
+            var calls = content.GetTopicDataFlowInfo();
+
+            // Only generate if there are topic-to-topic calls
+            if (calls.Count == 0) return;
+
+            RootGraph rootGraph = RootGraph.CreateNew(GraphType.Directed, "TopicDataFlow_" + CharsetHelper.GetSafeName(agent.Name));
+            Graph.IntroduceAttribute(rootGraph, "rankdir", "LR");
+            Graph.IntroduceAttribute(rootGraph, "fontname", "helvetica");
+            Graph.IntroduceAttribute(rootGraph, "nodesep", "0.8");
+            Graph.IntroduceAttribute(rootGraph, "ranksep", "1.2");
+            Node.IntroduceAttribute(rootGraph, "shape", "plain");
+            Node.IntroduceAttribute(rootGraph, "fontname", "helvetica");
+            Edge.IntroduceAttribute(rootGraph, "fontname", "helvetica");
+            Edge.IntroduceAttribute(rootGraph, "fontsize", "9");
+            Edge.IntroduceAttribute(rootGraph, "label", "");
+            Edge.IntroduceAttribute(rootGraph, "style", "");
+            Edge.IntroduceAttribute(rootGraph, "color", "");
+
+            // Collect all topics referenced in calls
+            var involvedSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var call in calls)
+            {
+                involvedSchemaNames.Add(call.SourceTopicSchemaName);
+                involvedSchemaNames.Add(call.TargetTopicSchemaName);
+            }
+
+            // System topic prefixes (muted color)
+            var systemTopicNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Greeting", "Goodbye", "ThankYou", "Fallback", "MultipleTopicsMatched",
+                "Escalate", "OnError", "ResetConversation", "StartOver", "Signin",
+                "ConversationStart", "Search"
+            };
+
+            // Create nodes for involved topics
+            var nodeMap = new Dictionary<string, Node>(StringComparer.OrdinalIgnoreCase);
+            foreach (var topic in topics)
+            {
+                if (!involvedSchemaNames.Contains(topic.SchemaName)) continue;
+
+                string nodeId = CharsetHelper.GetSafeName(topic.SchemaName);
+                Node n = rootGraph.GetOrAddNode(nodeId);
+                nodeMap[topic.SchemaName] = n;
+
+                string triggerType = topic.GetTriggerTypeForTopic();
+                var inputProps = topic.GetInputTypeProperties();
+                var outputProps = topic.GetOutputTypeProperties();
+
+                bool isSystem = systemTopicNames.Contains(topic.getTopicFileName());
+                string headerColor = isSystem ? "#999999" : "#0078d4";
+                string fillColor = isSystem ? "#f0f0f0" : "#e7f3ff";
+
+                // Build HTML-like label (SetAttributeHtml wraps in < > so we omit outer brackets)
+                var sb = new StringBuilder();
+                sb.Append($"<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">");
+
+                // Header row
+                sb.Append($"<TR><TD COLSPAN=\"2\" BGCOLOR=\"{headerColor}\" ALIGN=\"CENTER\">");
+                sb.Append($"<FONT COLOR=\"white\"><B>{System.Security.SecurityElement.Escape(topic.Name)}</B></FONT>");
+                sb.Append("</TD></TR>");
+
+                // Trigger type row
+                sb.Append($"<TR><TD COLSPAN=\"2\" BGCOLOR=\"{fillColor}\" ALIGN=\"CENTER\">");
+                sb.Append($"<FONT POINT-SIZE=\"9\">{System.Security.SecurityElement.Escape(triggerType)}</FONT>");
+                sb.Append("</TD></TR>");
+
+                // Input/Output properties side by side
+                int maxRows = Math.Max(inputProps.Count, outputProps.Count);
+                if (maxRows > 0)
+                {
+                    // Section header
+                    sb.Append($"<TR>");
+                    sb.Append($"<TD BGCOLOR=\"#f5f5f5\" ALIGN=\"CENTER\"><FONT POINT-SIZE=\"8\"><B>Inputs</B></FONT></TD>");
+                    sb.Append($"<TD BGCOLOR=\"#f5f5f5\" ALIGN=\"CENTER\"><FONT POINT-SIZE=\"8\"><B>Outputs</B></FONT></TD>");
+                    sb.Append("</TR>");
+
+                    for (int i = 0; i < maxRows; i++)
+                    {
+                        sb.Append("<TR>");
+                        if (i < inputProps.Count)
+                            sb.Append($"<TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"8\">{System.Security.SecurityElement.Escape(inputProps[i].Name)}: {System.Security.SecurityElement.Escape(inputProps[i].Type)}</FONT></TD>");
+                        else
+                            sb.Append("<TD></TD>");
+
+                        if (i < outputProps.Count)
+                            sb.Append($"<TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"8\">{System.Security.SecurityElement.Escape(outputProps[i].Name)}: {System.Security.SecurityElement.Escape(outputProps[i].Type)}</FONT></TD>");
+                        else
+                            sb.Append("<TD></TD>");
+                        sb.Append("</TR>");
+                    }
+                }
+
+                sb.Append("</TABLE>");
+                n.SetAttributeHtml("label", sb.ToString());
+            }
+
+            // Also add nodes for targets that aren't in the agent's topics (external references)
+            foreach (var call in calls)
+            {
+                if (!nodeMap.ContainsKey(call.TargetTopicSchemaName))
+                {
+                    string nodeId = CharsetHelper.GetSafeName(call.TargetTopicSchemaName);
+                    Node n = rootGraph.GetOrAddNode(nodeId);
+                    nodeMap[call.TargetTopicSchemaName] = n;
+                    string label = $"<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">"
+                        + $"<TR><TD BGCOLOR=\"#cccccc\" ALIGN=\"CENTER\"><FONT COLOR=\"white\"><B>{System.Security.SecurityElement.Escape(call.TargetTopicName)}</B></FONT></TD></TR>"
+                        + "</TABLE>";
+                    n.SetAttributeHtml("label", label);
+                }
+            }
+
+            // Create edges
+            foreach (var call in calls)
+            {
+                if (!nodeMap.TryGetValue(call.SourceTopicSchemaName, out Node srcNode)) continue;
+                if (!nodeMap.TryGetValue(call.TargetTopicSchemaName, out Node tgtNode)) continue;
+
+                Edge edge = rootGraph.GetOrAddEdge(srcNode, tgtNode, call.SourceTopicSchemaName + "->" + call.TargetTopicSchemaName + "_" + call.CallKind);
+
+                // Build edge label from bindings
+                var bindingParts = new List<string>();
+                foreach (var kvp in call.InputBindings)
+                {
+                    bindingParts.Add($"{kvp.Key}");
+                }
+                if (bindingParts.Count > 0)
+                {
+                    edge.SetAttribute("label", string.Join("\\n", bindingParts));
+                }
+
+                if (call.CallKind == "ReplaceDialog")
+                {
+                    edge.SetAttribute("style", "dashed");
+                    edge.SetAttribute("color", "#0077ff");
+                }
+                else
+                {
+                    edge.SetAttribute("color", "#333333");
+                }
+            }
+
+            rootGraph.CreateLayout();
+            string filename = "topic-dataflow";
+            rootGraph.ToPngFile(folderPath + filename + ".png");
+            rootGraph.ToSvgFile(folderPath + filename + ".svg");
+            EmbedImagesInSvg(folderPath + filename + ".svg");
+            NotificationHelper.SendNotification("  - Created Topic Data Flow Graph");
+        }
     }
 
     public static class GraphColours

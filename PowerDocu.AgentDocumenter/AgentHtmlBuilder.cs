@@ -591,6 +591,49 @@ namespace PowerDocu.AgentDocumenter
                     body.Append(TableRow(variable.Name, scope, dataType, aiVisibility, isExternalInit ? "Yes" : "No", variable.Description ?? ""));
                 }
                 body.AppendLine(TableEnd());
+
+                // Global Variable Usage Tracking
+                var usageMap = content.GetGlobalVariableUsageMap();
+                if (usageMap.Count > 0)
+                {
+                    body.AppendLine(Heading(3, "Global Variable Usage"));
+                    body.AppendLine(Paragraph("Cross-reference showing which topics read or write each global variable."));
+
+                    var varMetadata = new Dictionary<string, (string AIVisibility, string DataType)>(StringComparer.OrdinalIgnoreCase);
+                    foreach (BotComponent v in variables)
+                    {
+                        var (_, aiVis, dt, _) = v.GetVariableDetails();
+                        varMetadata["Global." + v.Name] = (aiVis, dt);
+                    }
+
+                    var sortedVars = usageMap.Keys.OrderByDescending(k =>
+                    {
+                        if (varMetadata.TryGetValue(k, out var meta))
+                            return meta.AIVisibility?.Contains("UseInAIContext", StringComparison.OrdinalIgnoreCase) == true
+                                || meta.AIVisibility?.Contains("Public", StringComparison.OrdinalIgnoreCase) == true ? 1 : 0;
+                        return 0;
+                    }).ThenBy(k => k);
+
+                    foreach (string varName in sortedVars)
+                    {
+                        string header = varName;
+                        if (varMetadata.TryGetValue(varName, out var meta)
+                            && (meta.AIVisibility?.Contains("UseInAIContext", StringComparison.OrdinalIgnoreCase) == true
+                                || meta.AIVisibility?.Contains("Public", StringComparison.OrdinalIgnoreCase) == true))
+                        {
+                            header += " (Orchestrator-visible)";
+                        }
+                        body.AppendLine(Heading(4, header));
+
+                        body.Append(TableStart("Topic", "Access", "Context"));
+                        foreach (var entry in usageMap[varName].OrderBy(e => e.AccessType).ThenBy(e => e.TopicName))
+                        {
+                            string topicCell = topicFileNames.TryGetValue(entry.TopicName, out var tf) ? Link(entry.TopicName, "Topics/" + tf) : Encode(entry.TopicName);
+                            body.Append(TableRowRaw(topicCell, Encode(entry.AccessType.ToString()), Encode(entry.Context)));
+                        }
+                        body.AppendLine(TableEnd());
+                    }
+                }
             }
 
             SaveHtmlFile(Path.Combine(content.folderPath, variablesFileName),
@@ -631,6 +674,32 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(Heading(1, $"Agent - {content.filename}"));
             body.AppendLine(buildMetadataTable());
             body.AppendLine(Heading(2, content.Topics));
+
+            // Topic Data Flow diagram
+            string dataFlowFile = "topic-dataflow.svg";
+            if (File.Exists(Path.Combine(content.folderPath, dataFlowFile)))
+            {
+                body.AppendLine(Heading(3, "Topic Data Flow"));
+                body.AppendLine(Paragraph("Visualization of how topics call each other via BeginDialog/ReplaceDialog, with data passed between them."));
+                body.AppendLine(ParagraphRaw($"<a href=\"{Encode(dataFlowFile)}\" target=\"_blank\">{Image("Topic Data Flow Diagram", dataFlowFile)}</a>"));
+                body.AppendLine("<br/>");
+
+                var calls = content.GetTopicDataFlowInfo();
+                if (calls.Count > 0)
+                {
+                    body.Append(TableStart("Source Topic", "Target Topic", "Call Type", "Data Passed"));
+                    foreach (var call in calls)
+                    {
+                        string dataPassed = call.InputBindings.Count > 0 ? string.Join(", ", call.InputBindings.Keys) : "";
+                        string sourceCell = topicFileNames.TryGetValue(call.SourceTopicName, out var sf) ? Link(call.SourceTopicName, "Topics/" + sf) : Encode(call.SourceTopicName);
+                        string targetCell = topicFileNames.TryGetValue(call.TargetTopicName, out var tf) ? Link(call.TargetTopicName, "Topics/" + tf) : Encode(call.TargetTopicName);
+                        body.Append(TableRowRaw(sourceCell, targetCell, Encode(call.CallKind), Encode(dataPassed)));
+                    }
+                    body.AppendLine(TableEnd());
+                }
+            }
+
+            body.AppendLine(Heading(3, "Topic List"));
             body.Append(TableStart("Name", "Type", "Trigger", "Kind"));
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
@@ -708,15 +777,18 @@ namespace PowerDocu.AgentDocumenter
                 topicBody.AppendLine(TableEnd());
             }
 
-            // Variables
+            // Variables (with Scope column)
             var variables = topic.GetTopicVariables();
             if (variables.Count > 0)
             {
                 topicBody.AppendLine(Heading(3, "Variables"));
-                topicBody.Append(TableStart("Variable", "Context"));
+                topicBody.Append(TableStart("Variable", "Scope", "Context"));
                 foreach (var (variable, context) in variables)
                 {
-                    topicBody.Append(TableRow(variable, context));
+                    string scope = variable.StartsWith("Global.") ? "Global"
+                        : variable.StartsWith("System.") ? "System"
+                        : "Topic";
+                    topicBody.Append(TableRow(variable, scope, context));
                 }
                 topicBody.AppendLine(TableEnd());
             }

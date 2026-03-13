@@ -59,6 +59,7 @@ namespace PowerDocu.AgentDocumenter
                 if (context.FullDocumentation)
                 {
                     AgentDocumentationContent content = new AgentDocumentationContent(agent, path, context);
+                    GraphBuilder.BuildTopicDataFlowGraph(agent, content, folderPath);
                     string wordTemplate = (!String.IsNullOrEmpty(context.Config.wordTemplate) && File.Exists(context.Config.wordTemplate))
                         ? context.Config.wordTemplate : null;
                     if (context.Config.outputFormat.Equals(OutputFormatHelper.Word) || context.Config.outputFormat.Equals(OutputFormatHelper.All))

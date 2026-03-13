@@ -121,7 +121,7 @@ namespace PowerDocu.AgentDocumenter
                             BotSchemaName = otherAgent.SchemaName,
                             Description = otherAgent.GetDescription() ?? "",
                             HistoryType = "",
-                            ConnectionType = "Solution Agent"
+                            ConnectionType = "Connected Agent"
                         });
                     }
                 }
@@ -152,6 +152,59 @@ namespace PowerDocu.AgentDocumenter
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// Returns all topic-to-topic calls across all topics, with names resolved.
+        /// </summary>
+        public List<TopicCallInfo> GetTopicDataFlowInfo()
+        {
+            var allCalls = new List<TopicCallInfo>();
+            var topicNameLookup = agent.GetTopics().ToDictionary(
+                t => t.SchemaName,
+                t => t.Name,
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var topic in agent.GetTopics())
+            {
+                foreach (var call in topic.GetTopicCalls())
+                {
+                    call.SourceTopicName = topic.Name;
+                    if (topicNameLookup.TryGetValue(call.TargetTopicSchemaName, out string targetName))
+                        call.TargetTopicName = targetName;
+                    allCalls.Add(call);
+                }
+            }
+            return allCalls;
+        }
+
+        /// <summary>
+        /// Returns a map of Global variable name → list of topic usages (read/write).
+        /// </summary>
+        public Dictionary<string, List<VariableUsageEntry>> GetGlobalVariableUsageMap()
+        {
+            var map = new Dictionary<string, List<VariableUsageEntry>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var topic in agent.GetTopics())
+            {
+                foreach (var varRef in topic.GetVariableReferences())
+                {
+                    if (!varRef.VariableName.StartsWith("Global.", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (!map.TryGetValue(varRef.VariableName, out var entries))
+                    {
+                        entries = new List<VariableUsageEntry>();
+                        map[varRef.VariableName] = entries;
+                    }
+                    entries.Add(new VariableUsageEntry
+                    {
+                        TopicName = topic.Name,
+                        AccessType = varRef.AccessType,
+                        Context = varRef.Context
+                    });
+                }
+            }
+            return map;
         }
     }
 }
