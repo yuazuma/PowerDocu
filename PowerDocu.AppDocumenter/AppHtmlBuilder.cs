@@ -348,7 +348,7 @@ namespace PowerDocu.AppDocumenter
                             {
                                 string solutionHtml = CrossDocLinkHelper.GetSolutionDocHtmlPath(content.context.Solution.UniqueName);
                                 string anchor = CrossDocLinkHelper.GetSolutionTableHtmlAnchor(tdInfo.LogicalName);
-                                dsBody.AppendLine(Paragraph("See " + Link("full table documentation in the solution", "../" + solutionHtml + anchor)));
+                                dsBody.AppendLine(ParagraphRaw("See " + Link("full table documentation in the solution", "../" + solutionHtml + anchor)));
                             }
                         }
                     }
