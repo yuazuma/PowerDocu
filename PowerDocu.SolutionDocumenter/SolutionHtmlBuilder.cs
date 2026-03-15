@@ -128,6 +128,7 @@ namespace PowerDocu.SolutionDocumenter
                 navItems.AddRange(section);
             }
 
+            navItems.Add(("Component Relationships", solutionFileName + "#component-relationships", 0));
             navItems.Add(("Dependencies", solutionFileName + "#dependencies", 0));
 
             // Add sub-entries for each dependency solution
@@ -376,6 +377,13 @@ namespace PowerDocu.SolutionDocumenter
                         }
                         break;
                 }
+            }
+
+            // Solution Component Relationships graph
+            if (File.Exists(Path.Combine(content.folderPath, "solution-components.svg")))
+            {
+                body.AppendLine(HeadingWithId(2, "Solution Component Relationships", "component-relationships"));
+                body.AppendLine(ParagraphRaw(Image("Solution Component Relationships", "solution-components.svg")));
             }
 
             // Dependencies

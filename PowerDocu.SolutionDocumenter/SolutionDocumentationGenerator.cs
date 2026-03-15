@@ -132,6 +132,11 @@ namespace PowerDocu.SolutionDocumenter
                 SolutionDocumentationContent solutionContent = new SolutionDocumentationContent(context, solutionPath);
                 DataverseGraphBuilder dataverseGraphBuilder = new DataverseGraphBuilder(solutionContent);
 
+                // Generate solution component relationship graph
+                SolutionComponentGraphBuilder componentGraphBuilder = new SolutionComponentGraphBuilder(
+                    solutionContent, solutionPath, config.showAllComponentsInGraph);
+                componentGraphBuilder.Build();
+
                 if (fullDocumentation)
                 {
                     if (config.outputFormat.Equals(OutputFormatHelper.Word) || config.outputFormat.Equals(OutputFormatHelper.All))

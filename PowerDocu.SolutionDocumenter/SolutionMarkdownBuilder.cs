@@ -267,6 +267,13 @@ namespace PowerDocu.SolutionDocumenter
                 }
             }
 
+            // Solution Component Relationships graph
+            if (File.Exists(content.folderPath + "/solution-components.svg"))
+            {
+                solutionDoc.Root.Add(new MdHeading("Solution Component Relationships", 2));
+                solutionDoc.Root.Add(new MdParagraph(new MdImageSpan("Solution Component Relationships", "solution-components.svg")));
+            }
+
             solutionDoc.Root.Add(new MdHeading("Solution Component Dependencies", 2));
             List<string> dependencies = content
                                         .solution

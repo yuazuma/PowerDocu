@@ -257,6 +257,33 @@ namespace PowerDocu.SolutionDocumenter
                         break;
                 }
             }
+            // Solution Component Relationships graph
+            if (File.Exists(content.folderPath + "solution-components.png") && File.Exists(content.folderPath + "solution-components.svg"))
+            {
+                AddHeading("Solution Component Relationships", "Heading1");
+                ImagePart relImagePart = mainPart.AddImagePart(ImagePartType.Png);
+                int relImageWidth, relImageHeight;
+                using (FileStream stream = new FileStream(content.folderPath + "solution-components.png", FileMode.Open))
+                {
+                    using (var image = Image.FromStream(stream, false, false))
+                    {
+                        relImageWidth = image.Width;
+                        relImageHeight = image.Height;
+                    }
+                    stream.Position = 0;
+                    relImagePart.FeedData(stream);
+                }
+                ImagePart relSvgPart = mainPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
+                using (FileStream stream = new FileStream(content.folderPath + "solution-components.svg", FileMode.Open))
+                {
+                    relSvgPart.FeedData(stream);
+                }
+                body.AppendChild(new Paragraph(new Run(
+                    InsertSvgImage(mainPart.GetIdOfPart(relSvgPart), mainPart.GetIdOfPart(relImagePart), relImageWidth, relImageHeight)
+                )));
+                body.AppendChild(new Paragraph(new Run()));
+            }
+
             AddHeading("Solution Component Dependencies", "Heading1");
             Paragraph para = body.AppendChild(new Paragraph());
             Run run = para.AppendChild(new Run());
