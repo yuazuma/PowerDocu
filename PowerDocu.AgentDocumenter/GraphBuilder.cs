@@ -154,6 +154,18 @@ namespace PowerDocu.AgentDocumenter
                 case "OnSelectIntent":
                     html += createCardBodyRow("<table border=\"0\" cellpadding=\"4\"><tr><td>When multiple topics matched</td></tr></table>");
                     break;
+                case "OnActivity":
+                    html += createCardBodyRow("<table border=\"0\" cellpadding=\"4\"><tr><td>When an activity is received</td></tr></table>");
+                    if (triggerYaml.Children.TryGetValue(new YamlScalarNode("type"), out var activityTypeNode))
+                    {
+                        html += createCardBodyRow($"<b>Activity Type:</b> {System.Web.HttpUtility.HtmlEncode(activityTypeNode.ToString())}");
+                    }
+                    if (triggerYaml.Children.TryGetValue(new YamlScalarNode("condition"), out var activityConditionNode))
+                    {
+                        html += createCardBodyRow("<b>Condition:</b>");
+                        html += $"<tr><td cellpadding=\"8\" align=\"left\" bgcolor=\"white\">{formatConditionExpression(activityConditionNode.ToString())}</td></tr>";
+                    }
+                    break;
                 default:
                     html += createCardBodyRow($"<table border=\"0\" cellpadding=\"4\"><tr><td>{System.Web.HttpUtility.HtmlEncode(triggerType)}</td></tr></table>");
                     break;
