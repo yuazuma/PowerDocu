@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Web;
 using PowerDocu.Common;
+using Svg;
 
 namespace PowerDocu.SolutionDocumenter
 {
@@ -120,6 +121,12 @@ namespace PowerDocu.SolutionDocumenter
                 if (_writtenFiles.Add(fullPath))
                 {
                     File.WriteAllText(fullPath, svgResult.SvgContent, Encoding.UTF8);
+                    //generating the PNG from the SVG
+                    var svgDocument = SvgDocument.Open(fullPath);
+                    using (var bitmap = svgDocument.Draw())
+                    {
+                        bitmap?.Save(Path.ChangeExtension(fullPath, ".png"));
+                    }
                 }
                 string formKey = form.GetFormName() + "|" + formTypeLabel;
                 result[formKey] = "Dataverse/" + filename;

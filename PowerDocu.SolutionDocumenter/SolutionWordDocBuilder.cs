@@ -430,6 +430,10 @@ namespace PowerDocu.SolutionDocumenter
                     para = body.AppendChild(new Paragraph());
                     run = para.AppendChild(new Run());
 
+                    // Generate SVG + PNG files for all forms in this table
+                    Dictionary<string, string> columnDisplayNames = tableEntity.GetColumns().ToDictionary(c => c.getLogicalName(), c => c.getDisplayName(), StringComparer.OrdinalIgnoreCase);
+                    Dictionary<string, string> formSvgFiles = FormSvgBuilder.GenerateFormSvgs(tableEntity, content.folderPath, columnDisplayNames);
+
                     foreach (FormEntity formEntity in tableEntity.GetForms())
                     {
                         List<FormTab> tabs = formEntity.GetTabs();
@@ -438,16 +442,35 @@ namespace PowerDocu.SolutionDocumenter
                             string formTypeLabel = formEntity.GetFormTypeDisplayName();
                             AddHeading("Form (" + formTypeLabel + "): " + formEntity.GetFormName(), "Heading5");
 
-                            // SVG wireframe mockup
-                            TableEntity currentTableEntity = content.solution.Customizations.getEntities().Find(e => e.GetForms().Contains(formEntity));
-                            Dictionary<string, string> columnDisplayNames = currentTableEntity?.GetColumns()?.ToDictionary(c => c.getLogicalName(), c => c.getDisplayName(), StringComparer.OrdinalIgnoreCase);
-                            string svgContent = FormSvgBuilder.GenerateFormSvgContent(formEntity, currentTableEntity?.getLocalizedName() ?? "", columnDisplayNames);
-                            if (!String.IsNullOrEmpty(svgContent))
+                            // SVG wireframe mockup with PNG fallback
+                            string formKey = formEntity.GetFormName() + "|" + formTypeLabel;
+                            if (formSvgFiles.TryGetValue(formKey, out string svgRelPath))
                             {
-                                var (svgWidth, svgHeight) = FormSvgBuilder.MeasureFormSvg(formEntity);
-                                body.AppendChild(new Paragraph(new Run(
-                                    InsertSvgImage(mainPart, svgContent, svgWidth, svgHeight)
-                                )));
+                                string svgFilePath = Path.Combine(content.folderPath, svgRelPath);
+                                string pngFilePath = Path.ChangeExtension(svgFilePath, ".png");
+                                if (File.Exists(svgFilePath) && File.Exists(pngFilePath))
+                                {
+                                    ImagePart formImagePart = mainPart.AddImagePart(ImagePartType.Png);
+                                    int formImageWidth, formImageHeight;
+                                    using (FileStream stream = new FileStream(pngFilePath, FileMode.Open))
+                                    {
+                                        using (var image = Image.FromStream(stream, false, false))
+                                        {
+                                            formImageWidth = image.Width;
+                                            formImageHeight = image.Height;
+                                        }
+                                        stream.Position = 0;
+                                        formImagePart.FeedData(stream);
+                                    }
+                                    ImagePart formSvgPart = mainPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
+                                    using (FileStream stream = new FileStream(svgFilePath, FileMode.Open))
+                                    {
+                                        formSvgPart.FeedData(stream);
+                                    }
+                                    body.AppendChild(new Paragraph(new Run(
+                                        InsertSvgImage(mainPart.GetIdOfPart(formSvgPart), mainPart.GetIdOfPart(formImagePart), formImageWidth, formImageHeight)
+                                    )));
+                                }
                             }
 
                             // Rendering Forms visually now, keeping this code for reference
