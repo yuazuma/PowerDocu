@@ -744,8 +744,8 @@ namespace PowerDocu.AgentDocumenter
                                 parseHtml += "<tr><td cellpadding=\"8\" bgcolor=\"white\"><table border=\"1\" cellpadding=\"4\"><tr><td><b>Schema Properties:</b></td></tr>";
                                 foreach (var prop in parsePropsMapping.Children)
                                 {
-                                    string propType = prop.Value is YamlScalarNode scalarPropVal ? scalarPropVal.ToString() : prop.Value.ToString();
-                                    parseHtml += $"<tr><td>{System.Web.HttpUtility.HtmlEncode(prop.Key.ToString())}: {System.Web.HttpUtility.HtmlEncode(propType)}</td></tr>";
+                                    string propName = System.Web.HttpUtility.HtmlEncode(prop.Key.ToString());
+                                    parseHtml += $"<tr><td>{propName}: {FormatSchemaType(prop.Value)}</td></tr>";
                                 }
                                 parseHtml += "</table></td></tr>";
                             }
@@ -807,6 +807,49 @@ namespace PowerDocu.AgentDocumenter
         private string formatVariable(string varName)
         {
             return $"<font color=\"#0078d4\"><b>(x)</b></font> {System.Web.HttpUtility.HtmlEncode(varName)}";
+        }
+
+        /// <summary>
+        /// Formats a YAML schema type node into readable HTML.
+        /// Handles scalars ("String"), and mapping nodes with kind/properties
+        /// (e.g. {type: {kind: Table, properties: {Name: String, Price: String}}}).
+        /// </summary>
+        private string FormatSchemaType(YamlNode valueNode)
+        {
+            if (valueNode is YamlScalarNode scalar)
+                return System.Web.HttpUtility.HtmlEncode(scalar.ToString());
+
+            if (valueNode is YamlMappingNode mapping)
+            {
+                // Check for nested "type" wrapper: { type: { kind: ..., properties: { ... } } }
+                if (mapping.Children.TryGetValue(new YamlScalarNode("type"), out var typeNode) && typeNode is YamlMappingNode typeMapping)
+                    mapping = typeMapping;
+
+                string kind = null;
+                if (mapping.Children.TryGetValue(new YamlScalarNode("kind"), out var kindNode))
+                    kind = kindNode.ToString();
+
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(kind))
+                    parts.Add($"<b>{System.Web.HttpUtility.HtmlEncode(kind)}</b>");
+
+                if (mapping.Children.TryGetValue(new YamlScalarNode("properties"), out var propsNode) && propsNode is YamlMappingNode propsMapping)
+                {
+                    var propNames = new List<string>();
+                    foreach (var child in propsMapping.Children)
+                    {
+                        string childType = FormatSchemaType(child.Value);
+                        propNames.Add($"{System.Web.HttpUtility.HtmlEncode(child.Key.ToString())}: {childType}");
+                    }
+                    if (propNames.Count > 0)
+                        parts.Add("{ " + string.Join(", ", propNames) + " }");
+                }
+
+                if (parts.Count > 0)
+                    return string.Join(" ", parts);
+            }
+
+            return System.Web.HttpUtility.HtmlEncode(valueNode.ToString());
         }
 
         /// <summary>
@@ -1158,6 +1201,22 @@ namespace PowerDocu.AgentDocumenter
                         sb.Append(input[i++]); // closing quote
                     }
                 }
+                else if (c == '\'')
+                {
+                    // Single-quoted string (e.g. '$schema') – convert to double-quoted JSON string
+                    sb.Append('"');
+                    i++; // skip opening single quote
+                    while (i < input.Length && input[i] != '\'')
+                    {
+                        if (input[i] == '"') { sb.Append("\\\""); i++; }
+                        else if (input[i] == '\\' && i + 1 < input.Length) { sb.Append(input[i++]); sb.Append(input[i++]); }
+                        else if (input[i] == '\n') { sb.Append("\\n"); i++; }
+                        else if (input[i] == '\r') { sb.Append("\\r"); i++; }
+                        else { sb.Append(input[i++]); }
+                    }
+                    if (i < input.Length) i++; // skip closing single quote
+                    sb.Append('"');
+                }
                 else if (char.IsLetter(c) || c == '_' || c == '$')
                 {
                     // Could be: unquoted JSON key, JSON keyword (true/false/null), or bare Power Fx expression
@@ -1403,16 +1462,21 @@ namespace PowerDocu.AgentDocumenter
                 "TextBlock" => RenderTextBlock(element),
                 "Input.Text" => RenderInputText(element),
                 "Input.ChoiceSet" => RenderInputChoiceSet(element),
-                /*"Input.Date" => RenderInputDate(element),
+                "Input.Date" => RenderInputDate(element),
                 "Input.Number" => RenderInputNumber(element),
                 "Input.Toggle" => RenderInputToggle(element),
                 "Container" => RenderContainer(element),
                 "ColumnSet" => RenderColumnSet(element),
                 "Image" => RenderImage(element),
                 "FactSet" => RenderFactSet(element),
-                "ActionSet" => RenderActionSet(element),*/
-                _ => $"<i>Element: {System.Web.HttpUtility.HtmlEncode(elementType)}</i>"
+                "ActionSet" => RenderActionSet(element),
+                _ => RenderUnsupportedElement(elementType)
             };
+        }
+
+        private string RenderUnsupportedElement(string elementType)
+        {
+            return $"<i>Element: {System.Web.HttpUtility.HtmlEncode(elementType)}(not supported yet)</i>";
         }
 
         private string RenderCardAction(JObject action)
@@ -1539,33 +1603,77 @@ namespace PowerDocu.AgentDocumenter
 
         private string RenderContainer(JObject element)
         {
-            int itemCount = 0;
-            if (element["items"] is JArray items)
+            var itemsToken = element["items"];
+            if (itemsToken is JArray items)
             {
-                itemCount = items.Count;
+                var childHtml = new List<string>();
+                foreach (var item in items)
+                {
+                    string html = RenderCardElement(item as JObject);
+                    if (!string.IsNullOrEmpty(html))
+                        childHtml.Add($"<tr><td>{html}</td></tr>");
+                }
+                if (childHtml.Count > 0)
+                    return $"<table border=\"0\" cellpadding=\"2\">{string.Join("", childHtml)}</table>";
+                return "(empty container)";
             }
-
-            return $"<b>Container</b> with {itemCount} nested item(s)";
+            // items is a string (e.g. sanitized ForAll expression)
+            if (itemsToken != null)
+            {
+                string expr = itemsToken.ToString();
+                return $"<i>Dynamic: {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(expr))}</i>";
+            }
+            return "(empty container)";
         }
 
         private string RenderColumnSet(JObject element)
         {
-            int columnCount = 0;
             if (element["columns"] is JArray columns)
             {
-                columnCount = columns.Count;
+                var colHtml = new List<string>();
+                foreach (var col in columns)
+                {
+                    if (col is JObject colObj)
+                    {
+                        var cellRows = new List<string>();
+                        if (colObj["items"] is JArray colItems)
+                        {
+                            foreach (var item in colItems)
+                            {
+                                string html = RenderCardElement(item as JObject);
+                                if (!string.IsNullOrEmpty(html))
+                                    cellRows.Add($"<tr><td>{html}</td></tr>");
+                            }
+                        }
+                        string content = cellRows.Count > 0
+                            ? $"<table border=\"0\" cellpadding=\"1\">{string.Join("", cellRows)}</table>"
+                            : "(empty)";
+                        colHtml.Add($"<td cellpadding=\"4\" valign=\"top\">{content}</td>");
+                    }
+                }
+                if (colHtml.Count > 0)
+                    return $"<table border=\"0\" cellpadding=\"2\"><tr>{string.Join("", colHtml)}</tr></table>";
             }
-
-            return $"<b>Column Set</b> with {columnCount} column(s)";
+            return "<b>Column Set</b> (empty)";
         }
 
         private string RenderImage(JObject element)
         {
             string url = element["url"]?.ToString() ?? "";
             string altText = element["altText"]?.ToString() ?? "";
-            string size = element["size"]?.ToString() ?? "auto";
 
-            return $"<b>Image:</b> {(!string.IsNullOrEmpty(altText) ? altText : "No alt text")}<br/>Size: {size}";
+            // Graphviz <img> only supports local file paths, not remote URLs.
+            // Show alt text and a truncated URL as a text-only placeholder.
+            string label = !string.IsNullOrEmpty(altText)
+                ? System.Web.HttpUtility.HtmlEncode(altText)
+                : "Image";
+            string urlHint = "";
+            if (!string.IsNullOrEmpty(url))
+            {
+                string displayUrl = url.Length > 50 ? url.Substring(0, 50) + "..." : url;
+                urlHint = $"<br/>{System.Web.HttpUtility.HtmlEncode(displayUrl)}";
+            }
+            return $"[img] <b>{label}</b>{urlHint}";
         }
 
         private string RenderFactSet(JObject element)
@@ -1575,31 +1683,35 @@ namespace PowerDocu.AgentDocumenter
             {
                 factCount = facts.Count;
                 var factList = new List<string>();
-                foreach (var fact in facts.Take(3)) // Show first 3 facts
+                foreach (var fact in facts)
                 {
                     string title = fact["title"]?.ToString() ?? "";
                     string value = fact["value"]?.ToString() ?? "";
-                    factList.Add($"{title}: {value}");
+                    factList.Add($"<b>{System.Web.HttpUtility.HtmlEncode(title)}</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(value))}");
                 }
                 string factText = string.Join("<br/>", factList);
-                if (factCount > 3) factText += $"<br/>... and {factCount - 3} more";
-                return $"<b>Fact Set</b> ({factCount} facts):<br/>{factText}";
+                return factText;
             }
 
             return $"<b>Fact Set</b> with {factCount} fact(s)";
         }
 
-        private string RenderActionSet(JObject element)
+         private string RenderActionSet(JObject element)
         {
-            int actionCount = 0;
             if (element["actions"] is JArray actions)
             {
-                actionCount = actions.Count;
+                var buttons = new List<string>();
+                foreach (var action in actions)
+                {
+                    string html = RenderCardAction(action as JObject);
+                    if (!string.IsNullOrEmpty(html))
+                        buttons.Add($"<tr><td>{html}</td></tr>");
+                }
+                if (buttons.Count > 0)
+                    return $"<table border=\"0\" cellpadding=\"2\">{string.Join("", buttons)}</table>";
             }
-
-            return $"<b>Action Set</b> with {actionCount} action(s)";
+            return "<b>Action Set</b> (empty)";
         }
-
         // Add this method to create constraint edges between parallel nodes
         //TODO potentially no longer required
         private void CreateLevelConstraints(RootGraph rootGraph, SubGraph cluster, List<Node> parallelNodes)
