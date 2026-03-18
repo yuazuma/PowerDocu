@@ -50,8 +50,6 @@ namespace PowerDocu.GUI
         public bool DocumentDefaultColumns { get; set; }
         [Option('n', "addTableOfContents", HelpText = "Add a Table of Contents to generated Word documents", Required = false, Default = false)]
         public bool AddTableOfContents { get; set; }
-        [Option("showAllComponentsInGraph", HelpText = "Show all solution components in the relationship graph, including isolated ones", Required = false, Default = true)]
-        public bool ShowAllComponentsInGraph { get; set; }
         [Option('k', "documentModelDrivenApps", HelpText = "Document Model-Driven Apps", Required = false, Default = true)]
         public bool DocumentModelDrivenApps { get; set; }
 

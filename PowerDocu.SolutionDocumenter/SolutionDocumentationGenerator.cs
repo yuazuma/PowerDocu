@@ -135,7 +135,7 @@ namespace PowerDocu.SolutionDocumenter
                 // Generate solution component relationship graph
                 SolutionComponentGraphBuilder componentGraphBuilder = new SolutionComponentGraphBuilder(
                     solutionContent, solutionPath, config.showAllComponentsInGraph);
-                componentGraphBuilder.Build();
+                //componentGraphBuilder.Build();
 
                 if (fullDocumentation)
                 {

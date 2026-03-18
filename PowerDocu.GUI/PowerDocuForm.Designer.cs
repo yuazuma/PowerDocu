@@ -250,7 +250,8 @@ namespace PowerDocu.GUI
                 Text = "Show all components in graph",
                 Checked = true,
                 AutoSize = true,
-                Location = Location = new Point(convertToDPISpecific(30), documentDefaultColumnsCheckBox.Location.Y + documentDefaultColumnsCheckBox.Height + convertToDPISpecific(5))
+                Location = Location = new Point(convertToDPISpecific(30), documentDefaultColumnsCheckBox.Location.Y + documentDefaultColumnsCheckBox.Height + convertToDPISpecific(5)),
+                Visible = false
             };
             docOptionsInnerPanel.Controls.Add(showAllComponentsInGraphCheckBox);
 

@@ -91,7 +91,6 @@ namespace PowerDocu.GUI
                 configHelper.documentAppControls = options.DocumentAppControls;
                 configHelper.documentDefaultColumns = options.DocumentDefaultColumns;
                 configHelper.addTableOfContents = options.AddTableOfContents;
-                configHelper.showAllComponentsInGraph = options.ShowAllComponentsInGraph;
                 configHelper.documentModelDrivenApps = options.DocumentModelDrivenApps;
                 switch (Path.GetExtension(itemToDocument))
                 {
