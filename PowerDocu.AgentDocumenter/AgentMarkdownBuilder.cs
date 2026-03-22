@@ -239,7 +239,8 @@ namespace PowerDocu.AgentDocumenter
                 List<MdListItem> toolsList = new List<MdListItem>();
                 foreach (AgentToolInfo tool in overviewTools)
                 {
-                    toolsList.Add(new MdListItem($"{tool.Name} ({tool.ToolType})"));
+                    string anchor = tool.Name.ToLowerInvariant().Replace(" ", "-");
+                    toolsList.Add(new MdListItem(new MdLinkSpan($"{tool.Name} ({tool.ToolType})", toolsFileName + "#" + anchor)));
                 }
                 mainDocument.Root.Add(new MdBulletList(toolsList));
             }
@@ -740,7 +741,96 @@ namespace PowerDocu.AgentDocumenter
                 }
                 if (!string.IsNullOrEmpty(tool.ModelParameters))
                     detailRows.Add(new MdTableRow("Model Parameters", tool.ModelParameters));
+                if (!string.IsNullOrEmpty(tool.OperationDetailsKind))
+                    detailRows.Add(new MdTableRow("Protocol", tool.OperationDetailsKind));
+                if (!string.IsNullOrEmpty(tool.ConnectionMode))
+                    detailRows.Add(new MdTableRow("Connection Mode", tool.ConnectionMode));
+                if (!string.IsNullOrEmpty(tool.ToolFilterKind))
+                {
+                    string filterLabel = tool.ToolFilterKind == "UseSpecificTools" ? "Specific Tools" : tool.ToolFilterKind == "UseAllTools" ? "All Tools" : tool.ToolFilterKind;
+                    detailRows.Add(new MdTableRow("Tool Filter", filterLabel));
+                }
                 toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), detailRows));
+
+                if (tool.AllowedTools.Count > 0)
+                {
+                    toolsDocument.Root.Add(new MdHeading("Allowed Tools", 4));
+                    List<MdTableRow> allowedToolRows = new List<MdTableRow>();
+                    int toolIndex = 1;
+                    foreach (string t in tool.AllowedTools.OrderBy(t => t))
+                    {
+                        allowedToolRows.Add(new MdTableRow(toolIndex.ToString(), t));
+                        toolIndex++;
+                    }
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "#", "Tool Name" }), allowedToolRows));
+                }
+
+                // Connector / OpenAPI specification
+                if (tool.Connector != null)
+                {
+                    toolsDocument.Root.Add(new MdHeading("Connector", 4));
+                    if (!string.IsNullOrEmpty(tool.Connector.IconBlobBase64))
+                    {
+                        string iconFileName = $"connector-{(tool.Connector.Name ?? "icon").Replace(" ", "-")}.png";
+                        try
+                        {
+                            byte[] iconBytes = Convert.FromBase64String(tool.Connector.IconBlobBase64);
+                            File.WriteAllBytes(content.folderPath + iconFileName, iconBytes);
+                            toolsDocument.Root.Add(new MdParagraph(new MdImageSpan("Connector Icon", iconFileName)));
+                        }
+                        catch { }
+                    }
+                    List<MdTableRow> connectorRows = new List<MdTableRow>();
+                    connectorRows.Add(new MdTableRow("Display Name", tool.Connector.DisplayName ?? ""));
+                    if (!string.IsNullOrEmpty(tool.Connector.Description))
+                        connectorRows.Add(new MdTableRow("Description", tool.Connector.Description));
+                    connectorRows.Add(new MdTableRow("Connector Type", tool.Connector.ConnectorType == 1 ? "Custom" : tool.Connector.ConnectorType.ToString()));
+                    if (!string.IsNullOrEmpty(tool.Connector.IconBrandColor))
+                        connectorRows.Add(new MdTableRow("Brand Color", tool.Connector.IconBrandColor));
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), connectorRows));
+
+                    if (!string.IsNullOrEmpty(tool.Connector.OpenApiDefinitionJson))
+                    {
+                        toolsDocument.Root.Add(new MdHeading("OpenAPI Definition", 5));
+                        try
+                        {
+                            string formatted = Newtonsoft.Json.Linq.JToken.Parse(tool.Connector.OpenApiDefinitionJson).ToString(Newtonsoft.Json.Formatting.Indented);
+                            toolsDocument.Root.Add(new MdCodeBlock(formatted, "json"));
+                        }
+                        catch
+                        {
+                            toolsDocument.Root.Add(new MdCodeBlock(tool.Connector.OpenApiDefinitionJson, "json"));
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(tool.Connector.ConnectionParametersJson))
+                    {
+                        toolsDocument.Root.Add(new MdHeading("Connection Parameters", 5));
+                        try
+                        {
+                            string formatted = Newtonsoft.Json.Linq.JToken.Parse(tool.Connector.ConnectionParametersJson).ToString(Newtonsoft.Json.Formatting.Indented);
+                            toolsDocument.Root.Add(new MdCodeBlock(formatted, "json"));
+                        }
+                        catch
+                        {
+                            toolsDocument.Root.Add(new MdCodeBlock(tool.Connector.ConnectionParametersJson, "json"));
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(tool.Connector.PolicyTemplateInstancesJson))
+                    {
+                        toolsDocument.Root.Add(new MdHeading("Policy Template Instances", 5));
+                        try
+                        {
+                            string formatted = Newtonsoft.Json.Linq.JToken.Parse(tool.Connector.PolicyTemplateInstancesJson).ToString(Newtonsoft.Json.Formatting.Indented);
+                            toolsDocument.Root.Add(new MdCodeBlock(formatted, "json"));
+                        }
+                        catch
+                        {
+                            toolsDocument.Root.Add(new MdCodeBlock(tool.Connector.PolicyTemplateInstancesJson, "json"));
+                        }
+                    }
+                }
 
                 // Inputs section
                 if (tool.Inputs.Count > 0)

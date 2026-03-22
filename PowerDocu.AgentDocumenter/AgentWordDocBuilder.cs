@@ -586,8 +586,109 @@ namespace PowerDocu.AgentDocumenter
                     table.Append(CreateRow(new Text("Agent Flow"), new Text(tool.AgentFlowName)));
                 if (!string.IsNullOrEmpty(tool.ModelParameters))
                     table.Append(CreateRow(new Text("Model Parameters"), new Text(tool.ModelParameters)));
+                if (!string.IsNullOrEmpty(tool.OperationDetailsKind))
+                    table.Append(CreateRow(new Text("Protocol"), new Text(tool.OperationDetailsKind)));
+                if (!string.IsNullOrEmpty(tool.ConnectionMode))
+                    table.Append(CreateRow(new Text("Connection Mode"), new Text(tool.ConnectionMode)));
+                if (!string.IsNullOrEmpty(tool.ToolFilterKind))
+                {
+                    string filterLabel = tool.ToolFilterKind == "UseSpecificTools" ? "Specific Tools" : tool.ToolFilterKind == "UseAllTools" ? "All Tools" : tool.ToolFilterKind;
+                    table.Append(CreateRow(new Text("Tool Filter"), new Text(filterLabel)));
+                }
                 body.Append(table);
                 body.AppendChild(new Paragraph(new Run(new Break())));
+
+                if (tool.AllowedTools.Count > 0)
+                {
+                    AddHeading("Allowed Tools", "Heading3");
+                    Table allowedToolsTable = CreateTable();
+                    allowedToolsTable.Append(CreateHeaderRow(new Text("#"), new Text("Tool Name")));
+                    int toolIndex = 1;
+                    foreach (string t in tool.AllowedTools.OrderBy(t => t))
+                    {
+                        allowedToolsTable.Append(CreateRow(new Text(toolIndex.ToString()), new Text(t)));
+                        toolIndex++;
+                    }
+                    body.Append(allowedToolsTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                // Connector / OpenAPI specification
+                if (tool.Connector != null)
+                {
+                    AddHeading("Connector", "Heading3");
+                    if (!string.IsNullOrEmpty(tool.Connector.IconBlobBase64))
+                    {
+                        try
+                        {
+                            byte[] iconBytes = Convert.FromBase64String(tool.Connector.IconBlobBase64);
+                            string iconPath = content.folderPath + $"connector-{(tool.Connector.Name ?? "icon").Replace(" ", "-")}.png";
+                            File.WriteAllBytes(iconPath, iconBytes);
+                            ImagePart iconPart = mainPart.AddImagePart(ImagePartType.Png);
+                            using (FileStream fs = new FileStream(iconPath, FileMode.Open))
+                            {
+                                iconPart.FeedData(fs);
+                            }
+                            Drawing iconDrawing = InsertImage(mainPart.GetIdOfPart(iconPart), 32, 32);
+                            body.AppendChild(new Paragraph(new Run(iconDrawing)));
+                        }
+                        catch { }
+                    }
+                    Table connTable = CreateTable();
+                    connTable.Append(CreateRow(new Text("Display Name"), new Text(tool.Connector.DisplayName ?? "")));
+                    if (!string.IsNullOrEmpty(tool.Connector.Description))
+                        connTable.Append(CreateRow(new Text("Description"), new Text(tool.Connector.Description)));
+                    connTable.Append(CreateRow(new Text("Connector Type"), new Text(tool.Connector.ConnectorType == 1 ? "Custom" : tool.Connector.ConnectorType.ToString())));
+                    if (!string.IsNullOrEmpty(tool.Connector.IconBrandColor))
+                        connTable.Append(CreateRow(new Text("Brand Color"), new Text(tool.Connector.IconBrandColor)));
+                    body.Append(connTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+
+                    if (!string.IsNullOrEmpty(tool.Connector.OpenApiDefinitionJson))
+                    {
+                        AddHeading("OpenAPI Definition", "Heading4");
+                        try
+                        {
+                            string formatted = Newtonsoft.Json.Linq.JToken.Parse(tool.Connector.OpenApiDefinitionJson).ToString(Newtonsoft.Json.Formatting.Indented);
+                            body.AppendChild(new Paragraph(new Run(new Text(formatted))));
+                        }
+                        catch
+                        {
+                            body.AppendChild(new Paragraph(new Run(new Text(tool.Connector.OpenApiDefinitionJson))));
+                        }
+                        body.AppendChild(new Paragraph(new Run(new Break())));
+                    }
+
+                    if (!string.IsNullOrEmpty(tool.Connector.ConnectionParametersJson))
+                    {
+                        AddHeading("Connection Parameters", "Heading4");
+                        try
+                        {
+                            string formatted = Newtonsoft.Json.Linq.JToken.Parse(tool.Connector.ConnectionParametersJson).ToString(Newtonsoft.Json.Formatting.Indented);
+                            body.AppendChild(new Paragraph(new Run(new Text(formatted))));
+                        }
+                        catch
+                        {
+                            body.AppendChild(new Paragraph(new Run(new Text(tool.Connector.ConnectionParametersJson))));
+                        }
+                        body.AppendChild(new Paragraph(new Run(new Break())));
+                    }
+
+                    if (!string.IsNullOrEmpty(tool.Connector.PolicyTemplateInstancesJson))
+                    {
+                        AddHeading("Policy Template Instances", "Heading4");
+                        try
+                        {
+                            string formatted = Newtonsoft.Json.Linq.JToken.Parse(tool.Connector.PolicyTemplateInstancesJson).ToString(Newtonsoft.Json.Formatting.Indented);
+                            body.AppendChild(new Paragraph(new Run(new Text(formatted))));
+                        }
+                        catch
+                        {
+                            body.AppendChild(new Paragraph(new Run(new Text(tool.Connector.PolicyTemplateInstancesJson))));
+                        }
+                        body.AppendChild(new Paragraph(new Run(new Break())));
+                    }
+                }
 
                 // Inputs
                 if (tool.Inputs.Count > 0)
