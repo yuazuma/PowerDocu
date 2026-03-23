@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using PowerDocu.Common;
+using Svg;
 
 namespace PowerDocu.AppDocumenter
 {
@@ -215,6 +216,14 @@ namespace PowerDocu.AppDocumenter
 
     public static class AppDocumentationHelper
     {
+        public static void EnsureControlIconSaved(string controlType, string folderPath, HashSet<string> renderedIcons)
+        {
+            if (!renderedIcons.Add(controlType)) return;
+            var svgDocument = SvgDocument.FromSvg<SvgDocument>(AppControlIcons.GetControlIcon(controlType));
+            using var bitmap = svgDocument.Draw(16, 0);
+            bitmap?.Save(folderPath + @"resources\" + controlType + ".png");
+        }
+
         public static List<ControlEntity> getAllChildControls(ControlEntity control)
         {
             List<ControlEntity> childControls = new List<ControlEntity>();

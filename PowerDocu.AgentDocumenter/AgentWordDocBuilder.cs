@@ -52,7 +52,8 @@ namespace PowerDocu.AgentDocumenter
                 {
                     Bitmap agentLogo = ImageHelper.ConvertBase64ToBitmap(content.agent.IconBase64);
                     string logoPath = content.folderPath + $"agentlogo-{content.filename.Replace(" ", "-")}.png";
-                    agentLogo.Save(logoPath);
+                    if (!File.Exists(logoPath))
+                        agentLogo.Save(logoPath);
                     ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
                     using (FileStream stream = new FileStream(logoPath, FileMode.Open))
                     {

@@ -14,11 +14,11 @@ namespace PowerDocu.FlowDocumenter
     {
         private Dictionary<Node, SubGraph> nodeClusterRelationship;
         private Dictionary<SubGraph, SubGraph> clusterRelationship;
-        private List<string> nodesInGraph;
+        private HashSet<string> nodesInGraph;
         private readonly FlowEntity flow;
         private readonly string folderPath;
         //using this list to store the names of edges. Some edges were created twice when creating an edge to a cluster (as it creates a dummy node when pointing to a cluster, which happens multiple times instead of getting reused)
-        private List<string> edges;
+        private HashSet<string> edges;
 
         public GraphBuilder(FlowEntity flowToUse, string path)
         {
@@ -39,8 +39,8 @@ namespace PowerDocu.FlowDocumenter
 
         private void buildGraph(bool showSubactions)
         {
-            edges = new List<string>();
-            nodesInGraph = new List<string>();
+            edges = new HashSet<string>();
+            nodesInGraph = new HashSet<string>();
             nodeClusterRelationship = new Dictionary<Node, SubGraph>();
             clusterRelationship = new Dictionary<SubGraph, SubGraph>();
             RootGraph rootGraph = RootGraph.CreateNew(GraphType.Directed, CharsetHelper.GetSafeName(flow.Name));
@@ -70,7 +70,8 @@ namespace PowerDocu.FlowDocumenter
                 if (!String.IsNullOrEmpty(connectorIcon))
                 {
                     string connectorIcon32Path = folderPath + Path.GetFileNameWithoutExtension(connectorIcon) + "32.png";
-                    ImageHelper.ConvertImageTo32(connectorIcon, connectorIcon32Path);
+                    if (!File.Exists(connectorIcon32Path))
+                        ImageHelper.ConvertImageTo32(connectorIcon, connectorIcon32Path);
                     triggerInnerHtml = "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr><td><img src=\"" + connectorIcon32Path + "\" /></td><td> " + triggerName + "</td></tr>";
                     if (!String.IsNullOrEmpty(flow.trigger.Description))
                     {
@@ -98,7 +99,7 @@ namespace PowerDocu.FlowDocumenter
             foreach (ActionNode rootAction in rootActions)
             {
                 addNodesToGraph(rootGraph, rootAction, null, null, showSubactions, true);
-                nodesInGraph = new List<string>();
+                nodesInGraph = new HashSet<string>();
                 addEdgesToGraph(rootGraph, rootAction, trigger, null, null, showSubactions, true);
             }
             rootGraph.CreateLayout();
@@ -171,7 +172,8 @@ namespace PowerDocu.FlowDocumenter
                     if (!String.IsNullOrEmpty(connectorIcon))
                     {
                         string connectorIcon32Path = folderPath + Path.GetFileNameWithoutExtension(connectorIcon) + "32.png";
-                        ImageHelper.ConvertImageTo32(connectorIcon, connectorIcon32Path);
+                        if (!File.Exists(connectorIcon32Path))
+                            ImageHelper.ConvertImageTo32(connectorIcon, connectorIcon32Path);
                         nodeInnerHtml = "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr><td><img src=\"" + connectorIcon32Path + "\" /></td><td> " + nodeName + "</td></tr>";
                         if (!String.IsNullOrEmpty(node.Description))
                         {

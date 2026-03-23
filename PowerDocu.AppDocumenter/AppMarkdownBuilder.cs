@@ -23,6 +23,7 @@ namespace PowerDocu.AppDocumenter
         private bool documentChangedDefaultsOnly;
         private bool showDefaults;
         private bool documentSampleData;
+        private readonly HashSet<string> _renderedIcons = new();
 
         public AppMarkdownBuilder(AppDocumentationContent contentdocumentation, bool documentChangedDefaultsOnly = false, bool showDefaults = true, bool documentSampleData = false)
         {
@@ -31,7 +32,7 @@ namespace PowerDocu.AppDocumenter
             this.showDefaults = showDefaults;
             this.documentSampleData = documentSampleData;
             Directory.CreateDirectory(content.folderPath);
-            Directory.CreateDirectory(Path.Combine(content.folderPath, "resources"));            
+            Directory.CreateDirectory(Path.Combine(content.folderPath, "resources"));
             mainDocumentFileName = ("index " + content.filename + ".md").Replace(" ", "-");
             appDetailsFileName = ("appdetails " + content.filename + ".md").Replace(" ", "-");
             variablesDocumentFileName = ("variables " + content.filename + ".md").Replace(" ", "-");
@@ -290,12 +291,7 @@ namespace PowerDocu.AppDocumenter
 
         private MdBulletList CreateControlList(ControlEntity control)
         {
-            var svgDocument = SvgDocument.FromSvg<SvgDocument>(AppControlIcons.GetControlIcon(control.Type));
-            //generating the PNG from the SVG with a width of 16px because some SVGs are huge and downscaled, thus can't be shown directly
-            using (var bitmap = svgDocument.Draw(16, 0))
-            {
-                bitmap?.Save(content.folderPath + @"resources\" + control.Type + ".png");
-            }
+            AppDocumentationHelper.EnsureControlIconSaved(control.Type, content.folderPath, _renderedIcons);
             string screenFileName = ("screen " + control.Screen().Name + " " + content.filename + ".md").Replace(" ", "-");
             string controlAnchor = control.Name.ToLowerInvariant().Replace(" ", "-");
             MdBulletList list = new MdBulletList(){
@@ -331,12 +327,7 @@ namespace PowerDocu.AppDocumenter
         {
             Entity defaultEntity = DefaultChangeHelper.GetEntityDefaults(control.Type);
             List<MdTableRow> tableRows = new List<MdTableRow>();
-            var svgDocument = SvgDocument.FromSvg<SvgDocument>(AppControlIcons.GetControlIcon(control.Type));
-            //generating the PNG from the SVG with a width of 16px because some SVGs are huge and downscaled, thus can't be shown directly
-            using (var bitmap = svgDocument.Draw(16, 0))
-            {
-                bitmap?.Save(content.folderPath + @"resources\" + control.Type + ".png");
-            }
+            AppDocumentationHelper.EnsureControlIconSaved(control.Type, content.folderPath, _renderedIcons);
             tableRows.Add(new MdTableRow(new MdImageSpan(control.Type, "resources/" + control.Type + ".png"), new MdTextSpan("Type: " + control.Type)));
 
             string category = "";

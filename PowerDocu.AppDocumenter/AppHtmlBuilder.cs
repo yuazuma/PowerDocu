@@ -19,6 +19,9 @@ namespace PowerDocu.AppDocumenter
         private bool documentChangedDefaultsOnly;
         private bool showDefaults;
         private bool documentSampleData;
+        private readonly HashSet<string> _renderedIcons = new();
+        private string? _metadataTableHtml;
+        private string? _navigationHtml;
 
         public AppHtmlBuilder(AppDocumentationContent contentdocumentation, bool documentChangedDefaultsOnly = false, bool showDefaults = true, bool documentSampleData = false)
         {
@@ -56,9 +59,10 @@ namespace PowerDocu.AppDocumenter
             NotificationHelper.SendNotification("Created HTML documentation for " + content.Name);
         }
 
-        private string getNavigationHtml()
-        {
-            var navItems = new List<(string label, string href)>();
+        private string getNavigationHtml() => _navigationHtml ??= BuildNavigationHtmlCore();
+
+        private string BuildNavigationHtmlCore()
+        {            var navItems = new List<(string label, string href)>();
             if (content.context?.Solution != null)
             {
                 if (content.context?.Config?.documentSolution == true)
@@ -81,9 +85,10 @@ namespace PowerDocu.AppDocumenter
             return sb.ToString();
         }
 
-        private string buildMetadataTable()
-        {
-            StringBuilder sb = new StringBuilder();
+        private string buildMetadataTable() => _metadataTableHtml ??= BuildMetadataTableCore();
+
+        private string BuildMetadataTableCore()
+        {            StringBuilder sb = new StringBuilder();
             sb.Append(TableStart("Property", "Value"));
             sb.Append(TableRow("App Name", content.Name));
             if (!String.IsNullOrEmpty(content.appProperties.appLogo))
@@ -432,11 +437,7 @@ namespace PowerDocu.AppDocumenter
 
         private string CreateControlListHtml(ControlEntity control)
         {
-            var svgDocument = SvgDocument.FromSvg<SvgDocument>(AppControlIcons.GetControlIcon(control.Type));
-            using (var bitmap = svgDocument.Draw(16, 0))
-            {
-                bitmap?.Save(content.folderPath + @"resources\" + control.Type + ".png");
-            }
+            AppDocumentationHelper.EnsureControlIconSaved(control.Type, content.folderPath, _renderedIcons);
             string screenFile = screenFileNames.GetValueOrDefault(control.Screen()?.Name, "#");
             string controlAnchor = SanitizeAnchorId(control.Name);
             StringBuilder sb = new StringBuilder("<ul>");
@@ -478,11 +479,7 @@ namespace PowerDocu.AppDocumenter
         {
             Entity defaultEntity = DefaultChangeHelper.GetEntityDefaults(control.Type);
             StringBuilder sb = new StringBuilder();
-            var svgDocument = SvgDocument.FromSvg<SvgDocument>(AppControlIcons.GetControlIcon(control.Type));
-            using (var bitmap = svgDocument.Draw(16, 0))
-            {
-                bitmap?.Save(content.folderPath + @"resources\" + control.Type + ".png");
-            }
+            AppDocumentationHelper.EnsureControlIconSaved(control.Type, content.folderPath, _renderedIcons);
             sb.Append(TableStart("Property", "Value"));
             sb.Append(TableRowRaw(Image(control.Type, "resources/" + control.Type + ".png"), "Type: " + Encode(control.Type)));
             string category = "";

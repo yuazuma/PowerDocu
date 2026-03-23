@@ -14,6 +14,10 @@ namespace PowerDocu.AgentDocumenter
         private readonly string mainFileName, knowledgeFileName, toolsFileName, agentsFileName, topicsFileName, channelsFileName, settingsFileName, entitiesFileName, variablesFileName;
         private readonly Dictionary<string, string> topicFileNames = new Dictionary<string, string>();
         private readonly Dictionary<string, string> knowledgeDetailFileNames = new Dictionary<string, string>();
+        private string? _navigationHtmlTop;
+        private string? _navigationHtmlSub;
+        private string? _metadataHtmlTop;
+        private string? _metadataHtmlSub;
 
         public AgentHtmlBuilder(AgentDocumentationContent contentdocumentation)
         {
@@ -53,6 +57,11 @@ namespace PowerDocu.AgentDocumenter
         }
 
         private string getNavigationHtml(bool isSubfolder = false)
+            => isSubfolder
+                ? (_navigationHtmlSub ??= BuildNavigationHtmlCore(true))
+                : (_navigationHtmlTop ??= BuildNavigationHtmlCore(false));
+
+        private string BuildNavigationHtmlCore(bool isSubfolder)
         {
             string prefix = isSubfolder ? "../" : "";
             var navItems = new List<(string label, string href)>();
@@ -83,6 +92,11 @@ namespace PowerDocu.AgentDocumenter
         }
 
         private string buildMetadataTable(bool isSubfolder = false)
+            => isSubfolder
+                ? (_metadataHtmlSub ??= BuildMetadataTableCore(true))
+                : (_metadataHtmlTop ??= BuildMetadataTableCore(false));
+
+        private string BuildMetadataTableCore(bool isSubfolder)
         {
             string prefix = isSubfolder ? "../" : "";
             StringBuilder sb = new StringBuilder();
@@ -93,7 +107,9 @@ namespace PowerDocu.AgentDocumenter
                 Directory.CreateDirectory(content.folderPath);
                 Bitmap agentLogo = ImageHelper.ConvertBase64ToBitmap(content.agent.IconBase64);
                 string logoFileName = $"agentlogo-{content.filename.Replace(" ", "-")}.png";
-                agentLogo.Save(content.folderPath + logoFileName);
+                string logoPath = content.folderPath + logoFileName;
+                if (!File.Exists(logoPath))
+                    agentLogo.Save(logoPath);
                 sb.Append(TableRowRaw("Agent Logo", Image("Agent Logo", prefix + logoFileName)));
                 agentLogo.Dispose();
             }
