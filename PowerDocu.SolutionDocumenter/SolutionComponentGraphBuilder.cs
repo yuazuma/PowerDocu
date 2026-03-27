@@ -16,6 +16,8 @@ namespace PowerDocu.SolutionDocumenter
                 { "Flow",              ("#2874A6", "#ffffff", "rectangle") },
                 { "Canvas App",        ("#1D8348", "#ffffff", "rectangle") },
                 { "Model-Driven App",  ("#117A65", "#ffffff", "rectangle") },
+                { "Business Process Flow", ("#AF601A", "#ffffff", "octagon") },
+                { "Desktop Flow",      ("#2E86C1", "#ffffff", "rectangle") },
                 { "Table",             ("#B9770E", "#ffffff", "cylinder") },
                 { "Connector",         ("#7D3C98", "#ffffff", "diamond") },
                 { "Data Source",       ("#7D3C98", "#ffffff", "diamond") },
@@ -38,6 +40,10 @@ namespace PowerDocu.SolutionDocumenter
                 { "lookup",          "#D35400" },
                 { "many-to-many",    "#D35400" },
                 { "uses AI model",   "#C0392B" },
+                { "primary entity",  "#AF601A" },
+                { "stage entity",    "#AF601A" },
+                { "uses env variable","#5B6770" },
+                { "calls flow",      "#2874A6" },
             };
 
         // Component types to include in the graph. Add new types here as needed.
@@ -49,6 +55,8 @@ namespace PowerDocu.SolutionDocumenter
                 "Canvas App",
                 "Flow",
                 "Model-Driven App",
+                "Business Process Flow",
+                "Desktop Flow",
                 "Table"
                 /* [potential future additions]
                 "Connector",
@@ -146,30 +154,59 @@ namespace PowerDocu.SolutionDocumenter
                 }
             }
 
-            // Create subgraph clusters per component type and add nodes
+            // Create nodes for each component (no clustering by type)
             var nodeMap = new Dictionary<string, Node>();
             foreach (var kvp in componentsByType.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
             {
                 string componentType = kvp.Key;
                 var names = kvp.Value;
 
-                SubGraph cluster = rootGraph.GetOrAddSubgraph(CharsetHelper.GetSafeName("cluster_" + componentType));
-                cluster.SetAttribute("label", componentType);
-                cluster.SetAttribute("style", "dashed");
-                cluster.SetAttribute("color", "#999999");
-                cluster.SetAttribute("fontname", "helvetica");
-
                 var (fillColor, fontColor, shape) = GetNodeStyle(componentType);
 
                 foreach (string name in names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
                 {
                     string nodeId = CharsetHelper.GetSafeName(componentType + "::" + name);
-                    Node node = cluster.GetOrAddNode(nodeId);
+                    Node node = rootGraph.GetOrAddNode(nodeId);
                     node.SetAttribute("label", name);
                     node.SetAttribute("fillcolor", fillColor);
                     node.SetAttribute("fontcolor", fontColor);
                     node.SetAttribute("shape", shape);
                     nodeMap[componentType + "::" + name] = node;
+                }
+            }
+
+            // Build a legend showing only the component types actually used
+            var usedTypes = componentsByType.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+            if (usedTypes.Count > 0)
+            {
+                SubGraph legend = rootGraph.GetOrAddSubgraph("cluster_legend");
+                legend.SetAttribute("label", "Legend");
+                legend.SetAttribute("style", "rounded");
+                legend.SetAttribute("color", "#999999");
+                legend.SetAttribute("fontname", "helvetica");
+                legend.SetAttribute("fontsize", "12");
+
+                Node prevLegendNode = null;
+                foreach (string typeName in usedTypes)
+                {
+                    var (fillColor, fontColor, shape) = GetNodeStyle(typeName);
+                    string legendNodeId = CharsetHelper.GetSafeName("legend_" + typeName);
+                    Node legendNode = legend.GetOrAddNode(legendNodeId);
+                    legendNode.SetAttribute("label", typeName);
+                    legendNode.SetAttribute("fillcolor", fillColor);
+                    legendNode.SetAttribute("fontcolor", fontColor);
+                    legendNode.SetAttribute("shape", shape);
+                    legendNode.SetAttribute("fontsize", "9");
+
+                    // Chain legend nodes with invisible edges to keep them in order
+                    if (prevLegendNode != null)
+                    {
+                        Edge invisEdge = rootGraph.GetOrAddEdge(prevLegendNode, legendNode,
+                            CharsetHelper.GetSafeName("legend_edge_" + typeName));
+                        invisEdge.SetAttribute("color", "transparent");
+                        invisEdge.SetAttribute("label", "");
+                    }
+                    prevLegendNode = legendNode;
                 }
             }
 
