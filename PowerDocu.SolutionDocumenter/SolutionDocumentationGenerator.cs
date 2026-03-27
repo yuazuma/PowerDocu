@@ -7,6 +7,7 @@ using PowerDocu.AIModelDocumenter;
 using PowerDocu.AppDocumenter;
 using PowerDocu.AppModuleDocumenter;
 using PowerDocu.BPFDocumenter;
+using PowerDocu.DesktopFlowDocumenter;
 using PowerDocu.FlowDocumenter;
 
 namespace PowerDocu.SolutionDocumenter
@@ -103,6 +104,12 @@ namespace PowerDocu.SolutionDocumenter
                             }
                         }
                     }
+
+                    // Extract Desktop Flows from customizations (Category=6, UIFlowType>=0)
+                    if (config.documentDesktopFlows)
+                    {
+                        context.DesktopFlows = context.Customizations.getDesktopFlows() ?? new List<DesktopFlowEntity>();
+                    }
                 }
             }
 
@@ -110,7 +117,7 @@ namespace PowerDocu.SolutionDocumenter
             NotificationHelper.SendNotification(
                 $"Phase 1 complete: {context.Flows.Count} flow(s), {context.Apps.Count} app(s), " +
                 $"{context.Agents.Count} agent(s), {context.AppModules.Count} app module(s), " +
-                $"{context.BusinessProcessFlows.Count} BPF(s), " +
+                $"{context.BusinessProcessFlows.Count} BPF(s), {context.DesktopFlows.Count} desktop flow(s), " +
                 $"{context.Tables.Count} table(s), {context.Roles.Count} role(s)."
             );
 
@@ -124,6 +131,8 @@ namespace PowerDocu.SolutionDocumenter
                 progress.Register("Agents", context.Agents.Count);
             if (config.documentBusinessProcessFlows && context.BusinessProcessFlows.Count > 0)
                 progress.Register("BPFs", context.BusinessProcessFlows.Count);
+            if (config.documentDesktopFlows && context.DesktopFlows.Count > 0)
+                progress.Register("DesktopFlows", context.DesktopFlows.Count);
             if (config.documentModelDrivenApps && context.AppModules.Count > 0)
                 progress.Register("Model-Driven Apps", context.AppModules.Count);
             int aiModelCount = context.Customizations?.getAIModels()?.Count ?? 0;
@@ -174,6 +183,12 @@ namespace PowerDocu.SolutionDocumenter
                 BPFDocumentationGenerator.GenerateOutput(context, solutionBasePath);
             }
 
+            // Generate Desktop Flow documentation
+            if (config.documentDesktopFlows)
+            {
+                DesktopFlowDocumentationGenerator.GenerateOutput(context, solutionBasePath);
+            }
+
             // Generate solution-level documentation (solution overview, model-driven apps, Dataverse graph)
             if (config.documentSolution && context.Solution != null)
             {
@@ -192,7 +207,7 @@ namespace PowerDocu.SolutionDocumenter
                 // Generate solution component relationship graph
                 SolutionComponentGraphBuilder componentGraphBuilder = new SolutionComponentGraphBuilder(
                     solutionContent, solutionPath, config.showAllComponentsInGraph);
-                //componentGraphBuilder.Build();
+                componentGraphBuilder.Build();
 
                 if (fullDocumentation)
                 {
