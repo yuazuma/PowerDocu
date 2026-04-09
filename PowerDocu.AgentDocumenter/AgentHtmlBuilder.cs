@@ -834,7 +834,6 @@ namespace PowerDocu.AgentDocumenter
             topicBody.Append(TableStart("Property", "Value"));
             topicBody.Append(TableRow("Name", topic.Name));
             topicBody.Append(TableRow("Type", topic.GetComponentTypeDisplayName()));
-            topicBody.Append(TableRow("Trigger", topic.GetTriggerTypeForTopic()));
             topicBody.Append(TableRow("Topic Kind", topic.GetTopicKind()));
             if (!string.IsNullOrEmpty(topic.Description))
             {
@@ -852,17 +851,43 @@ namespace PowerDocu.AgentDocumenter
             }
             topicBody.AppendLine(TableEnd());
 
-            // Trigger queries
+            // Trigger section
+            topicBody.AppendLine(Heading(3, "Trigger"));
+            topicBody.Append(TableStart("Property", "Value"));
+            topicBody.Append(TableRow("Trigger Type", topic.GetTriggerTypeForTopic()));
+            string rawTriggerKind = topic.GetTopicTriggerKindRaw();
+            if (!string.IsNullOrEmpty(rawTriggerKind))
+                topicBody.Append(TableRow("Trigger Kind", rawTriggerKind));
+            topicBody.AppendLine(TableEnd());
+
             List<string> triggerQueries = topic.GetTriggerQueries();
             if (triggerQueries.Count > 0)
             {
-                topicBody.AppendLine(Heading(3, "Trigger Queries"));
+                topicBody.AppendLine(Heading(4, "Trigger Phrases"));
                 topicBody.AppendLine(BulletListStart());
                 foreach (string query in triggerQueries)
-                {
                     topicBody.AppendLine(BulletItem(query));
-                }
                 topicBody.AppendLine(BulletListEnd());
+            }
+
+            var inputProps = topic.GetInputTypeProperties();
+            if (inputProps.Count > 0)
+            {
+                topicBody.AppendLine(Heading(4, "Input Parameters"));
+                topicBody.Append(TableStart("Name", "Type"));
+                foreach (var p in inputProps)
+                    topicBody.Append(TableRow(p.Name, p.Type));
+                topicBody.AppendLine(TableEnd());
+            }
+
+            var outputProps = topic.GetOutputTypeProperties();
+            if (outputProps.Count > 0)
+            {
+                topicBody.AppendLine(Heading(4, "Output Parameters"));
+                topicBody.Append(TableStart("Name", "Type"));
+                foreach (var p in outputProps)
+                    topicBody.Append(TableRow(p.Name, p.Type));
+                topicBody.AppendLine(TableEnd());
             }
 
             // Knowledge source details
@@ -878,20 +903,37 @@ namespace PowerDocu.AgentDocumenter
                 topicBody.AppendLine(TableEnd());
             }
 
-            // Variables (with Scope column)
+            // Variables — one row per variable, all usage locations stacked in Usage column
             var variables = topic.GetTopicVariables();
+            var actionStepMap = topic.GetTopicActionStepMap();
             if (variables.Count > 0)
             {
                 topicBody.AppendLine(Heading(3, "Variables"));
-                topicBody.Append(TableStart("Variable", "Scope", "Context"));
-                foreach (var (variable, context) in variables)
+                topicBody.Append(TableStart("Variable", "Scope", "Usage"));
+                foreach (var group in variables.GroupBy(v => v.Variable))
                 {
-                    string scope = variable.StartsWith("Global.") ? "Global"
-                        : variable.StartsWith("System.") ? "System"
+                    string varName = group.Key;
+                    string scope = varName.StartsWith("Global.") ? "Global"
+                        : varName.StartsWith("System.") ? "System"
                         : "Topic";
-                    topicBody.Append(TableRow(variable, scope, context));
+                    string usageHtml = string.Join("<br/>", group.Select(v =>
+                    {
+                        string anchor = ExtractActionAnchorFromContext(v.Context, actionStepMap);
+                        return !string.IsNullOrEmpty(anchor)
+                            ? $"<a href=\"#{anchor}\">{Encode(v.Context)}</a>"
+                            : Encode(v.Context);
+                    }));
+                    topicBody.Append(TableRowRaw(Encode(varName), Encode(scope), usageHtml));
                 }
                 topicBody.AppendLine(TableEnd());
+            }
+
+            // Actions
+            var actionNodes = topic.GetTopicActionNodes();
+            if (actionNodes.Count > 0)
+            {
+                topicBody.AppendLine(Heading(3, "Actions"));
+                topicBody.Append(RenderTopicActions(actionNodes));
             }
 
             // Topic flow diagram
@@ -905,6 +947,66 @@ namespace PowerDocu.AgentDocumenter
             Directory.CreateDirectory(Path.Combine(content.folderPath, "Topics"));
             SaveHtmlFile(Path.Combine(content.folderPath, "Topics", topicFile),
                 WrapInHtmlPage($"Topic: {topic.Name}", topicBody.ToString(), getNavigationHtml(true), "../style.css"));
+        }
+
+        private static string ExtractActionAnchorFromContext(string context, Dictionary<string, string> stepMap)
+        {
+            int open = context.LastIndexOf('(');
+            int close = context.LastIndexOf(')');
+            if (open >= 0 && close > open)
+            {
+                string key = context.Substring(open + 1, close - open - 1);
+                if (stepMap.TryGetValue(key, out string stepLabel))
+                    return "action-step-" + stepLabel.Replace('.', '-');
+            }
+            return null;
+        }
+
+        private string RenderTopicActions(List<TopicActionNode> nodes)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("<table>");
+            sb.AppendLine("<thead><tr><th>Step</th><th>Action</th><th>Details</th></tr></thead>");
+            sb.AppendLine("<tbody>");
+            RenderActionNodeRows(sb, nodes, 0, "");
+            sb.AppendLine("</tbody></table>");
+            return sb.ToString();
+        }
+
+        // Returns the updated actionIndex so callers can thread it across consecutive branch calls.
+        private static int RenderActionNodeRows(StringBuilder sb, List<TopicActionNode> nodes, int depth, string stepPrefix, int startIndex = 0)
+        {
+            string indentStyle = depth > 0 ? $" style=\"padding-left:{depth * 20}px\"" : "";
+            int actionIndex = startIndex;
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+                if (node.Kind == "Branch")
+                {
+                    sb.Append($"<tr class=\"action-branch\"><td></td><td{indentStyle} colspan=\"2\"><em>&#8594; {Encode(node.BranchLabel)}</em></td></tr>");
+                    // Thread the counter through each branch so all branches within the same
+                    // ConditionGroup share a continuous sequence (no duplicate step numbers).
+                    actionIndex = RenderActionNodeRows(sb, node.Children, depth + 1, stepPrefix, actionIndex);
+                }
+                else
+                {
+                    actionIndex++;
+                    string stepLabel = string.IsNullOrEmpty(stepPrefix) ? actionIndex.ToString() : $"{stepPrefix}.{actionIndex}";
+                    string kindLabel = string.IsNullOrEmpty(node.DisplayName) || node.DisplayName == node.Kind
+                        ? Encode(node.Kind)
+                        : $"<strong>{Encode(node.Kind)}</strong>: {Encode(node.DisplayName)}";
+                    string details = node.Properties.Count > 0
+                        ? string.Join("<br/>", node.Properties.Select(p => $"<strong>{Encode(p.Key)}</strong>: {Encode(p.Value)}"))
+                        : "";
+                    string rowId = $" id=\"action-step-{stepLabel.Replace('.', '-')}\"";
+                    sb.Append($"<tr{rowId}><td>{Encode(stepLabel)}</td><td{indentStyle}>{kindLabel}</td><td>{details}</td></tr>");
+
+                    if (node.Children.Count > 0)
+                        RenderActionNodeRows(sb, node.Children, depth + 1, stepLabel);
+                }
+            }
+            return actionIndex;
         }
 
         private void addAgentChannels()

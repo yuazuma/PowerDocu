@@ -438,7 +438,6 @@ namespace PowerDocu.AgentDocumenter
                 Table table = CreateTable();
                 table.Append(CreateRow(new Text("Name"), new Text(topic.Name)));
                 table.Append(CreateRow(new Text("Type"), new Text(topic.GetComponentTypeDisplayName())));
-                table.Append(CreateRow(new Text("Trigger"), new Text(topic.GetTriggerTypeForTopic())));
                 table.Append(CreateRow(new Text("Topic Kind"), new Text(topic.GetTopicKind())));
                 if (!string.IsNullOrEmpty(topic.Description))
                 {
@@ -457,19 +456,49 @@ namespace PowerDocu.AgentDocumenter
                 body.Append(table);
                 body.AppendChild(new Paragraph(new Run(new Break())));
 
-                // Trigger queries
+                // Trigger section
+                AddHeading("Trigger", "Heading3");
+                Table triggerTable = CreateTable();
+                triggerTable.Append(CreateRow(new Text("Trigger Type"), new Text(topic.GetTriggerTypeForTopic())));
+                string rawTriggerKind = topic.GetTopicTriggerKindRaw();
+                if (!string.IsNullOrEmpty(rawTriggerKind))
+                    triggerTable.Append(CreateRow(new Text("Trigger Kind"), new Text(rawTriggerKind)));
+                body.Append(triggerTable);
+                body.AppendChild(new Paragraph(new Run(new Break())));
+
                 List<string> triggerQueries = topic.GetTriggerQueries();
                 if (triggerQueries.Count > 0)
                 {
-                    AddHeading("Trigger Queries", "Heading3");
-
-                    Table triggerTable = CreateTable();
-                    triggerTable.Append(CreateHeaderRow(new Text("Query")));
+                    AddHeading("Trigger Phrases", "Heading4");
+                    Table tqTable = CreateTable();
+                    tqTable.Append(CreateHeaderRow(new Text("Query")));
                     foreach (string query in triggerQueries)
-                    {
-                        triggerTable.Append(CreateRow(new Text(query)));
-                    }
-                    body.Append(triggerTable);
+                        tqTable.Append(CreateRow(new Text(query)));
+                    body.Append(tqTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                var inputProps = topic.GetInputTypeProperties();
+                if (inputProps.Count > 0)
+                {
+                    AddHeading("Input Parameters", "Heading4");
+                    Table ipTable = CreateTable();
+                    ipTable.Append(CreateHeaderRow(new Text("Name"), new Text("Type")));
+                    foreach (var p in inputProps)
+                        ipTable.Append(CreateRow(new Text(p.Name), new Text(p.Type)));
+                    body.Append(ipTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                var outputProps = topic.GetOutputTypeProperties();
+                if (outputProps.Count > 0)
+                {
+                    AddHeading("Output Parameters", "Heading4");
+                    Table opTable = CreateTable();
+                    opTable.Append(CreateHeaderRow(new Text("Name"), new Text("Type")));
+                    foreach (var p in outputProps)
+                        opTable.Append(CreateRow(new Text(p.Name), new Text(p.Type)));
+                    body.Append(opTable);
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
 
@@ -488,22 +517,41 @@ namespace PowerDocu.AgentDocumenter
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
 
-                // Variables (with Scope column)
+                // Variables — one row per variable, all usage locations with step annotations
                 var variables = topic.GetTopicVariables();
+                var actionStepMap = topic.GetTopicActionStepMap();
                 if (variables.Count > 0)
                 {
                     AddHeading("Variables", "Heading3");
 
                     Table varTable = CreateTable();
-                    varTable.Append(CreateHeaderRow(new Text("Variable"), new Text("Scope"), new Text("Context")));
-                    foreach (var (variable, context) in variables)
+                    varTable.Append(CreateHeaderRow(new Text("Variable"), new Text("Scope"), new Text("Usage")));
+                    foreach (var group in variables.GroupBy(v => v.Variable))
                     {
-                        string scope = variable.StartsWith("Global.") ? "Global"
-                            : variable.StartsWith("System.") ? "System"
+                        string varName = group.Key;
+                        string scope = varName.StartsWith("Global.") ? "Global"
+                            : varName.StartsWith("System.") ? "System"
                             : "Topic";
-                        varTable.Append(CreateRow(new Text(variable), new Text(scope), new Text(context)));
+                        string usage = string.Join(", ", group.Select(v =>
+                        {
+                            string stepLabel = ExtractStepLabelFromContext(v.Context, actionStepMap);
+                            return string.IsNullOrEmpty(stepLabel) ? v.Context : $"{v.Context} (Step {stepLabel})";
+                        }));
+                        varTable.Append(CreateRow(new Text(varName), new Text(scope), new Text(usage)));
                     }
                     body.Append(varTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                // Actions
+                var actionNodes = topic.GetTopicActionNodes();
+                if (actionNodes.Count > 0)
+                {
+                    AddHeading("Actions", "Heading3");
+                    Table actTable = CreateTable();
+                    actTable.Append(CreateHeaderRow(new Text("Step"), new Text("Action"), new Text("Details")));
+                    BuildWordActionRows(actTable, actionNodes, 0, "");
+                    body.Append(actTable);
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
 
@@ -536,6 +584,48 @@ namespace PowerDocu.AgentDocumenter
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
             }
+        }
+
+        private static string ExtractStepLabelFromContext(string context, Dictionary<string, string> stepMap)
+        {
+            int open = context.LastIndexOf('(');
+            int close = context.LastIndexOf(')');
+            if (open >= 0 && close > open)
+            {
+                string key = context.Substring(open + 1, close - open - 1);
+                if (stepMap.TryGetValue(key, out string stepLabel))
+                    return stepLabel;
+            }
+            return null;
+        }
+
+        private int BuildWordActionRows(Table table, List<TopicActionNode> nodes, int depth, string stepPrefix, int startIndex = 0)
+        {
+            int actionIndex = startIndex;
+            string indent = new string(' ', depth * 2);
+            foreach (var node in nodes)
+            {
+                if (node.Kind == "Branch")
+                {
+                    table.Append(CreateRow(new Text(""), new Text($"{indent}\u2192 {node.BranchLabel}"), new Text("")));
+                    actionIndex = BuildWordActionRows(table, node.Children, depth + 1, stepPrefix, actionIndex);
+                }
+                else
+                {
+                    actionIndex++;
+                    string stepLabel = string.IsNullOrEmpty(stepPrefix) ? actionIndex.ToString() : $"{stepPrefix}.{actionIndex}";
+                    string actionText = string.IsNullOrEmpty(node.DisplayName) || node.DisplayName == node.Kind
+                        ? node.Kind
+                        : $"{node.Kind}: {node.DisplayName}";
+                    string details = node.Properties.Count > 0
+                        ? string.Join("; ", node.Properties.Select(p => $"{p.Key}: {p.Value}"))
+                        : "";
+                    table.Append(CreateRow(new Text(stepLabel), new Text($"{indent}{actionText}"), new Text(details)));
+                    if (node.Children.Count > 0)
+                        BuildWordActionRows(table, node.Children, depth + 1, stepLabel);
+                }
+            }
+            return actionIndex;
         }
         private void addAgentTools()
         {

@@ -579,7 +579,6 @@ namespace PowerDocu.AgentDocumenter
             {
                 new MdTableRow("Name", topic.Name),
                 new MdTableRow("Type", topic.GetComponentTypeDisplayName()),
-                new MdTableRow("Trigger", topic.GetTriggerTypeForTopic()),
                 new MdTableRow("Topic Kind", topic.GetTopicKind())
             };
             if (!string.IsNullOrEmpty(topic.Description))
@@ -598,17 +597,40 @@ namespace PowerDocu.AgentDocumenter
             }
             topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), metaRows));
 
-            // Trigger queries
+            // Trigger section
+            topicDoc.Root.Add(new MdHeading("Trigger", 3));
+            List<MdTableRow> triggerRows = new List<MdTableRow>
+            {
+                new MdTableRow("Trigger Type", topic.GetTriggerTypeForTopic())
+            };
+            string rawTriggerKind = topic.GetTopicTriggerKindRaw();
+            if (!string.IsNullOrEmpty(rawTriggerKind))
+                triggerRows.Add(new MdTableRow("Trigger Kind", rawTriggerKind));
+            topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), triggerRows));
+
             List<string> triggerQueries = topic.GetTriggerQueries();
             if (triggerQueries.Count > 0)
             {
-                topicDoc.Root.Add(new MdHeading("Trigger Queries", 3));
-                List<MdListItem> queryItems = new List<MdListItem>();
-                foreach (string query in triggerQueries)
-                {
-                    queryItems.Add(new MdListItem(query));
-                }
-                topicDoc.Root.Add(new MdBulletList(queryItems));
+                topicDoc.Root.Add(new MdHeading("Trigger Phrases", 4));
+                topicDoc.Root.Add(new MdBulletList(triggerQueries.Select(q => new MdListItem(q)).ToList()));
+            }
+
+            var inputProps = topic.GetInputTypeProperties();
+            if (inputProps.Count > 0)
+            {
+                topicDoc.Root.Add(new MdHeading("Input Parameters", 4));
+                topicDoc.Root.Add(new MdTable(
+                    new MdTableRow(new List<string>() { "Name", "Type" }),
+                    inputProps.Select(p => new MdTableRow(p.Name, p.Type)).ToList()));
+            }
+
+            var outputProps = topic.GetOutputTypeProperties();
+            if (outputProps.Count > 0)
+            {
+                topicDoc.Root.Add(new MdHeading("Output Parameters", 4));
+                topicDoc.Root.Add(new MdTable(
+                    new MdTableRow(new List<string>() { "Name", "Type" }),
+                    outputProps.Select(p => new MdTableRow(p.Name, p.Type)).ToList()));
             }
 
             // Knowledge source details for KnowledgeSourceConfiguration topics
@@ -625,20 +647,39 @@ namespace PowerDocu.AgentDocumenter
                     topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), ksRows));
             }
 
-            // Variables (with Scope column)
+            // Variables — one row per variable, all usage locations with step annotations
             var variables = topic.GetTopicVariables();
+            var actionStepMap = topic.GetTopicActionStepMap();
             if (variables.Count > 0)
             {
                 topicDoc.Root.Add(new MdHeading("Variables", 3));
                 List<MdTableRow> varRows = new List<MdTableRow>();
-                foreach (var (variable, context) in variables)
+                foreach (var group in variables.GroupBy(v => v.Variable))
                 {
-                    string scope = variable.StartsWith("Global.") ? "Global"
-                        : variable.StartsWith("System.") ? "System"
+                    string varName = group.Key;
+                    string scope = varName.StartsWith("Global.") ? "Global"
+                        : varName.StartsWith("System.") ? "System"
                         : "Topic";
-                    varRows.Add(new MdTableRow(variable, scope, context));
+                    string usage = string.Join(", ", group.Select(v =>
+                    {
+                        string stepLabel = ExtractStepLabelFromContext(v.Context, actionStepMap);
+                        return string.IsNullOrEmpty(stepLabel) ? v.Context : $"{v.Context} [Step {stepLabel}]";
+                    }));
+                    varRows.Add(new MdTableRow(varName, scope, usage));
                 }
-                topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Variable", "Scope", "Context" }), varRows));
+                topicDoc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Variable", "Scope", "Usage" }), varRows));
+            }
+
+            // Actions
+            var actionNodes = topic.GetTopicActionNodes();
+            if (actionNodes.Count > 0)
+            {
+                topicDoc.Root.Add(new MdHeading("Actions", 3));
+                List<MdTableRow> actionRows = new List<MdTableRow>();
+                BuildMarkdownActionRows(actionRows, actionNodes, 0, "");
+                topicDoc.Root.Add(new MdTable(
+                    new MdTableRow(new List<string>() { "Step", "Action", "Details" }),
+                    actionRows));
             }
 
             // Topic flow diagram
@@ -648,6 +689,48 @@ namespace PowerDocu.AgentDocumenter
                 topicDoc.Root.Add(new MdHeading("Topic Flow", 3));
                 topicDoc.Root.Add(new MdParagraph(new MdRawMarkdownSpan($"[![Topic Flow Diagram]({graphFile})]({graphFile})")));
             }
+        }
+
+        private static string ExtractStepLabelFromContext(string context, Dictionary<string, string> stepMap)
+        {
+            int open = context.LastIndexOf('(');
+            int close = context.LastIndexOf(')');
+            if (open >= 0 && close > open)
+            {
+                string key = context.Substring(open + 1, close - open - 1);
+                if (stepMap.TryGetValue(key, out string stepLabel))
+                    return stepLabel;
+            }
+            return null;
+        }
+
+        private static int BuildMarkdownActionRows(List<MdTableRow> rows, List<TopicActionNode> nodes, int depth, string stepPrefix, int startIndex = 0)
+        {
+            int actionIndex = startIndex;
+            string indent = new string(' ', depth * 2);
+            foreach (var node in nodes)
+            {
+                if (node.Kind == "Branch")
+                {
+                    rows.Add(new MdTableRow("", new MdRawMarkdownSpan($"{indent}*\u2192 {node.BranchLabel}*"), new MdRawMarkdownSpan("")));
+                    actionIndex = BuildMarkdownActionRows(rows, node.Children, depth + 1, stepPrefix, actionIndex);
+                }
+                else
+                {
+                    actionIndex++;
+                    string stepLabel = string.IsNullOrEmpty(stepPrefix) ? actionIndex.ToString() : $"{stepPrefix}.{actionIndex}";
+                    string actionText = string.IsNullOrEmpty(node.DisplayName) || node.DisplayName == node.Kind
+                        ? node.Kind
+                        : $"{node.Kind}: {node.DisplayName}";
+                    string details = node.Properties.Count > 0
+                        ? string.Join(", ", node.Properties.Select(p => $"{p.Key}: {p.Value}"))
+                        : "";
+                    rows.Add(new MdTableRow(stepLabel, new MdRawMarkdownSpan($"{indent}{actionText}"), new MdRawMarkdownSpan(details)));
+                    if (node.Children.Count > 0)
+                        BuildMarkdownActionRows(rows, node.Children, depth + 1, stepLabel);
+                }
+            }
+            return actionIndex;
         }
 
         private void addAgentChannels()
