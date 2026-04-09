@@ -70,7 +70,7 @@ namespace PowerDocu.FlowDocumenter
             int imageWidth, imageHeight;
             if (ConnectorHelper.getConnectorIconFile(connectorUniqueName) != "")
             {
-                using (FileStream stream = new FileStream(ConnectorHelper.getConnectorIconFile(connectorUniqueName), FileMode.Open))
+                using (FileStream stream = new FileStream(ConnectorHelper.getConnectorIconFile(connectorUniqueName), FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     using (var image = Image.FromStream(stream, false, false))
                     {
@@ -207,7 +207,7 @@ namespace PowerDocu.FlowDocumenter
             //we generated a png and a svg file. We use both: SVG as the default, PNG as the fallback for older clients that can't display SVG
             ImagePart imagePart = wordDoc.MainDocumentPart.AddImagePart(ImagePartType.Png);
             int imageWidth, imageHeight;
-            using (FileStream stream = new FileStream(content.folderPath + "flow.png", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + "flow.png", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (var image = Image.FromStream(stream, false, false))
                 {
@@ -218,7 +218,7 @@ namespace PowerDocu.FlowDocumenter
                 imagePart.FeedData(stream);
             }
             ImagePart svgPart = wordDoc.MainDocumentPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
-            using (FileStream stream = new FileStream(content.folderPath + "flow.svg", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + "flow.svg", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 svgPart.FeedData(stream);
             }
@@ -443,7 +443,7 @@ namespace PowerDocu.FlowDocumenter
             //We add both the SVG and the PNG here. Modern clients (Office 2016 onwards?) can display the SVG. Others should use PNG as fallback
             ImagePart imagePart = wordDoc.MainDocumentPart.AddImagePart(ImagePartType.Png);
             int imageWidth, imageHeight;
-            using (FileStream stream = new FileStream(content.folderPath + content.details.imageFileName + ".png", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + content.details.imageFileName + ".png", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (var image = Image.FromStream(stream, false, false))
                 {
@@ -454,7 +454,7 @@ namespace PowerDocu.FlowDocumenter
                 imagePart.FeedData(stream);
             }
             ImagePart svgPart = wordDoc.MainDocumentPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
-            using (FileStream stream = new FileStream(content.folderPath + content.details.imageFileName + ".svg", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + content.details.imageFileName + ".svg", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 svgPart.FeedData(stream);
             }

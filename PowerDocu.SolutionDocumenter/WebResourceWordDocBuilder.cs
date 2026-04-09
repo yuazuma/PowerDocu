@@ -47,7 +47,7 @@ namespace PowerDocu.SolutionDocumenter
             string wrOutputDir = Path.Combine(content.folderPath, "WebResources");
             Directory.CreateDirectory(wrOutputDir);
 
-            using FileStream zipStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read);
+            using FileStream zipStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             ZipArchive archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
             foreach (WebResourceEntity wr in webResources)
@@ -178,7 +178,7 @@ namespace PowerDocu.SolutionDocumenter
             try
             {
                 int imgWidth, imgHeight;
-                using (FileStream stream = new FileStream(imgFile, FileMode.Open, FileAccess.Read))
+                using (FileStream stream = new FileStream(imgFile, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     using (var image = Image.FromStream(stream, false, false))
                     {

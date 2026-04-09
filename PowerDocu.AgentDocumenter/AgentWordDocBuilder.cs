@@ -55,7 +55,7 @@ namespace PowerDocu.AgentDocumenter
                     if (!File.Exists(logoPath))
                         agentLogo.Save(logoPath);
                     ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
-                    using (FileStream stream = new FileStream(logoPath, FileMode.Open))
+                    using (FileStream stream = new FileStream(logoPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         imagePart.FeedData(stream);
                     }
@@ -380,7 +380,7 @@ namespace PowerDocu.AgentDocumenter
                 {
                     ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
                     int imageWidth, imageHeight;
-                    using (FileStream stream = new FileStream(dataFlowPng, FileMode.Open))
+                    using (FileStream stream = new FileStream(dataFlowPng, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         using (var image = Image.FromStream(stream, false, false))
                         {
@@ -566,7 +566,7 @@ namespace PowerDocu.AgentDocumenter
                     {
                         ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
                         int imageWidth, imageHeight;
-                        using (FileStream stream = new FileStream(graphFilePath, FileMode.Open))
+                        using (FileStream stream = new FileStream(graphFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
                             using (var image = Image.FromStream(stream, false, false))
                             {
@@ -716,7 +716,7 @@ namespace PowerDocu.AgentDocumenter
                             string iconPath = content.folderPath + $"connector-{(tool.Connector.Name ?? "icon").Replace(" ", "-")}.png";
                             File.WriteAllBytes(iconPath, iconBytes);
                             ImagePart iconPart = mainPart.AddImagePart(ImagePartType.Png);
-                            using (FileStream fs = new FileStream(iconPath, FileMode.Open))
+                            using (FileStream fs = new FileStream(iconPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                             {
                                 iconPart.FeedData(fs);
                             }

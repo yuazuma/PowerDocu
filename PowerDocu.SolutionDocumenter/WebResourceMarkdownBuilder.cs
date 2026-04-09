@@ -39,7 +39,7 @@ namespace PowerDocu.SolutionDocumenter
             string wrOutputDir = Path.Combine(content.folderPath, "WebResources");
             Directory.CreateDirectory(wrOutputDir);
 
-            using FileStream zipStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read);
+            using FileStream zipStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             ZipArchive archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
             foreach (WebResourceEntity wr in webResources)

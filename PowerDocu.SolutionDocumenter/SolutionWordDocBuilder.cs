@@ -324,7 +324,7 @@ namespace PowerDocu.SolutionDocumenter
                 AddHeading("Solution Component Relationships", "Heading1");
                 ImagePart relImagePart = mainPart.AddImagePart(ImagePartType.Png);
                 int relImageWidth, relImageHeight;
-                using (FileStream stream = new FileStream(content.folderPath + "solution-components.png", FileMode.Open))
+                using (FileStream stream = new FileStream(content.folderPath + "solution-components.png", FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     using (var image = Image.FromStream(stream, false, false))
                     {
@@ -335,7 +335,7 @@ namespace PowerDocu.SolutionDocumenter
                     relImagePart.FeedData(stream);
                 }
                 ImagePart relSvgPart = mainPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
-                using (FileStream stream = new FileStream(content.folderPath + "solution-components.svg", FileMode.Open))
+                using (FileStream stream = new FileStream(content.folderPath + "solution-components.svg", FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     relSvgPart.FeedData(stream);
                 }
@@ -513,7 +513,7 @@ namespace PowerDocu.SolutionDocumenter
                                 {
                                     ImagePart formImagePart = mainPart.AddImagePart(ImagePartType.Png);
                                     int formImageWidth, formImageHeight;
-                                    using (FileStream stream = new FileStream(pngFilePath, FileMode.Open))
+                                    using (FileStream stream = new FileStream(pngFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                                     {
                                         using (var image = Image.FromStream(stream, false, false))
                                         {
@@ -524,7 +524,7 @@ namespace PowerDocu.SolutionDocumenter
                                         formImagePart.FeedData(stream);
                                     }
                                     ImagePart formSvgPart = mainPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
-                                    using (FileStream stream = new FileStream(svgFilePath, FileMode.Open))
+                                    using (FileStream stream = new FileStream(svgFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                                     {
                                         formSvgPart.FeedData(stream);
                                     }
@@ -652,7 +652,7 @@ namespace PowerDocu.SolutionDocumenter
             AddHeading("Table Relationships", "Heading3");
             ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
             int imageWidth, imageHeight;
-            using (FileStream stream = new FileStream(content.folderPath + "dataverse.png", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + "dataverse.png", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (var image = Image.FromStream(stream, false, false))
                 {
@@ -663,7 +663,7 @@ namespace PowerDocu.SolutionDocumenter
                 imagePart.FeedData(stream);
             }
             ImagePart svgPart = mainPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
-            using (FileStream stream = new FileStream(content.folderPath + "dataverse.svg", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + "dataverse.svg", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 svgPart.FeedData(stream);
             }
@@ -929,7 +929,7 @@ namespace PowerDocu.SolutionDocumenter
                 AccessLevel.Basic => "basic.png",
                 _ => "none.png",
             };
-            using FileStream stream = new FileStream(iconFile, FileMode.Open);
+            using FileStream stream = new FileStream(iconFile, FileMode.Open, FileAccess.Read, FileShare.Read);
             ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Jpeg);
             imagePart.FeedData(stream);
             return InsertImage(mainPart.GetIdOfPart(imagePart), 12, 12);

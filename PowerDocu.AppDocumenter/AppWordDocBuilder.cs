@@ -210,7 +210,7 @@ namespace PowerDocu.AppDocumenter
             body.AppendChild(new Paragraph(new Run(new Text(content.appControls.infoTextScreenNavigation))));
             ImagePart imagePart = wordDoc.MainDocumentPart.AddImagePart(ImagePartType.Png);
             int imageWidth, imageHeight;
-            using (FileStream stream = new FileStream(content.folderPath + content.appControls.imageScreenNavigation + ".png", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + content.appControls.imageScreenNavigation + ".png", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (var image = Image.FromStream(stream, false, false))
                 {
@@ -221,7 +221,7 @@ namespace PowerDocu.AppDocumenter
                 imagePart.FeedData(stream);
             }
             ImagePart svgPart = wordDoc.MainDocumentPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
-            using (FileStream stream = new FileStream(content.folderPath + content.appControls.imageScreenNavigation + ".svg", FileMode.Open))
+            using (FileStream stream = new FileStream(content.folderPath + content.appControls.imageScreenNavigation + ".svg", FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 svgPart.FeedData(stream);
             }

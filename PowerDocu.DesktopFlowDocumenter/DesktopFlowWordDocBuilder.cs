@@ -78,7 +78,7 @@ namespace PowerDocu.DesktopFlowDocumenter
             {
                 ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
                 int imageWidth, imageHeight;
-                using (FileStream stream = new FileStream(pngFile, FileMode.Open))
+                using (FileStream stream = new FileStream(pngFile, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     using (var image = Image.FromStream(stream, false, false))
                     {
@@ -206,7 +206,7 @@ namespace PowerDocu.DesktopFlowDocumenter
                     {
                         ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
                         int imageWidth, imageHeight;
-                        using (FileStream stream = new FileStream(pngFile, FileMode.Open))
+                        using (FileStream stream = new FileStream(pngFile, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
                             using (var image = Image.FromStream(stream, false, false))
                             {
