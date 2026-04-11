@@ -26,6 +26,7 @@ namespace PowerDocu.SolutionDocumenter
             CollectModelDrivenAppRelationships(content, relationships);
             CollectBPFRelationships(content, relationships);
             CollectDesktopFlowRelationships(content, relationships);
+            //CollectDataflowRelationships(content, relationships);
 
             NormalizeTableNames(content, relationships, allComponents);
 
@@ -58,6 +59,10 @@ namespace PowerDocu.SolutionDocumenter
             {
                 allComponents.Add(new SolutionComponentNode("Desktop Flow", desktopFlow.GetDisplayName()));
             }
+            /*foreach (var dataflow in content.dataflows)
+            {
+                allComponents.Add(new SolutionComponentNode("Dataflow", dataflow.GetDisplayName()));
+            }*/
             if (content.solution?.Customizations != null)
             {
                 foreach (var table in content.solution.Customizations.getEntities())
@@ -213,6 +218,27 @@ namespace PowerDocu.SolutionDocumenter
                         string tableName = content.context?.GetTableDisplayName(entityName);
                         if (string.IsNullOrEmpty(tableName)) tableName = entityName;
                         relationships.Add(new ComponentRelationship("Flow", flow.Name, "Table", tableName, "uses table"));
+                    }
+                }
+
+                // Flow → Flow (child flow calls via Workflow-type actions)
+                var addedChildFlows = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var actionNode in flow.actions.ActionNodes)
+                {
+                    if (!"Workflow".Equals(actionNode.Type, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    foreach (var inputExpr in actionNode.actionInputs)
+                    {
+                        if (!inputExpr.expressionOperator.Equals("host", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        string workflowRef = FindExpressionStringValue(inputExpr, "workflowReferenceName");
+                        if (string.IsNullOrEmpty(workflowRef)) continue;
+
+                        string childFlowName = content.context?.GetFlowNameById(workflowRef);
+                        if (!string.IsNullOrEmpty(childFlowName) && addedChildFlows.Add(childFlowName))
+                        {
+                            relationships.Add(new ComponentRelationship("Flow", flow.Name, "Flow", childFlowName, "calls flow"));
+                        }
                     }
                 }
             }
@@ -445,6 +471,22 @@ namespace PowerDocu.SolutionDocumenter
             }
         }
 
+        private static void CollectDataflowRelationships(SolutionDocumentationContent content, List<ComponentRelationship> relationships)
+        {
+            foreach (var dataflow in content.dataflows)
+            {
+                foreach (var query in dataflow.Queries)
+                {
+                    if (!string.IsNullOrEmpty(query.EntityName))
+                    {
+                        string tableName = content.context?.GetTableDisplayName(query.EntityName);
+                        if (string.IsNullOrEmpty(tableName)) tableName = query.EntityName;
+                        relationships.Add(new ComponentRelationship("Dataflow", dataflow.GetDisplayName(), "Table", tableName, "loads into"));
+                    }
+                }
+            }
+        }
+
         private static bool IsFlowDataSource(DataSource ds)
         {
             var apiIdExpr = ds.Properties.FirstOrDefault(p =>
@@ -488,6 +530,14 @@ namespace PowerDocu.SolutionDocumenter
                     string tableName = FindExpressionStringValue(expr, "tableName");
                     if (!string.IsNullOrEmpty(tableName))
                         return tableName;
+                    // Dataverse webhook triggers use "subscriptionRequest/entityname"
+                    string subscriptionEntity = FindExpressionStringValue(expr, "subscriptionRequest/entityname");
+                    if (!string.IsNullOrEmpty(subscriptionEntity))
+                        return subscriptionEntity;
+                    // Dataverse polling triggers use "table"
+                    string pollingTable = FindExpressionStringValue(expr, "table");
+                    if (!string.IsNullOrEmpty(pollingTable))
+                        return pollingTable;
                 }
             }
             return null;
